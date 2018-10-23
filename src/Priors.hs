@@ -29,24 +29,11 @@ char :: MonadSample m => m Char
 char = uniformD ['a'..'z']
 
 string :: MonadSample m => m String
-string = undefined
-
-expr :: MonadSample m => Map.Map String Expr -> m Expr
-expr context = do
-  constructor <- uniformD [1..(length context + 3)]
-  if constructor <= length context then do
-    variable <- uniformD (Map.keys context)
-    return $ Var variable
+string = do
+  flip <- bernoulli 0.5
+  c <- char
+  if flip then
+    string >>= \str -> return (c:str)
   else
-    case constructor - length context of
-      1 -> do
-        func <- expr context
-        arg <- expr context
-        return (App func arg)
-      2 -> do
-        name <- string
-        body <- expr context
-        return (Abs name body)
-      3 -> do
-        constant <- constant
-        return (Constant constant)
+    return [c]
+
