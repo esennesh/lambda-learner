@@ -64,3 +64,10 @@ var ctx t | compatibles /= Map.empty =
     var_at_index index = Var . fst $ (Map.toList compatibles !! index)
     compatibles = Map.filter (== t) ctx
 var _ _ = Nothing
+
+expr :: MonadSample m => Map.Map String ExprType -> ExprType -> m Expr
+expr ctx t = do
+  generate <- bernoulli 0.5
+  case var ctx t of
+    Just v | generate -> v
+    _ -> operator ctx t
