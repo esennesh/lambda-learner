@@ -5,6 +5,18 @@ import Control.Monad.Bayes.Class
 import qualified Data.Map as Map
 import Data.Maybe
 
+exprType :: MonadSample m => m ExprType
+exprType = do
+  constructor <- uniformD [1..4]
+  case constructor of
+    1 -> return IntTy
+    2 -> return BoolTy
+    3 -> return StringTy
+    4 -> do
+      arg <- exprType
+      result <- exprType
+      return (FuncTy arg result)
+
 constant :: MonadSample m => m ConstantExpr
 constant = do
   constructor <- uniformD [1..3]
