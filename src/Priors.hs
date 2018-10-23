@@ -42,3 +42,17 @@ constExpr _ IntTy = (Constant . IntConstant) <$> geometric 0.5
 constExpr _ BoolTy = (Constant . BoolConstant) <$> bernoulli 0.5
 constExpr _ StringTy = (Constant . StrConstant) <$> string
 
+operator :: MonadSample m => Map.Map String ExprType -> ExprType -> m Expr
+operator ctx (FuncTy a b) = do
+  arg <- string
+  body <- expr (Map.insert arg a ctx) b
+  return (Abs arg body)
+operator ctx t = do
+  generate_constant <- bernoulli 0.5
+  if generate_constant then
+    constExpr ctx t
+  else do
+    ta <- exprType
+    a <- expr ctx ta
+    func <- operator ctx (FuncTy ta t)
+    return (App func a)
