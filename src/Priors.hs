@@ -25,6 +25,9 @@ constant = do
     2 -> BoolConstant <$> bernoulli 0.5
     3 -> StrConstant <$> string
 
+char :: MonadSample m => m Char
+char = uniformD ['a'..'z']
+
 string :: MonadSample m => m String
 string = undefined
 
