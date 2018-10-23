@@ -56,3 +56,11 @@ operator ctx t = do
     a <- expr ctx ta
     func <- operator ctx (FuncTy ta t)
     return (App func a)
+
+var :: MonadSample m => Map.Map String ExprType -> ExprType -> Maybe (m Expr)
+var ctx t | compatibles /= Map.empty =
+    Just (var_at_index <$> uniformD [0..length compatibles-1])
+  where
+    var_at_index index = Var . fst $ (Map.toList compatibles !! index)
+    compatibles = Map.filter (== t) ctx
+var _ _ = Nothing
