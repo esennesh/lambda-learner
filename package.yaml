@@ -26,6 +26,9 @@ dependencies:
 
 library:
   source-dirs: src
+  ghc-options:
+    - -XLambdaCase
+    - -XGADTs
 
 executables:
   lambda-learner-exe:
@@ -36,6 +39,7 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     - -XLambdaCase
+    - -XGADTs
     dependencies:
     - lambda-learner
 
