@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: e07fd391ff97b9c7f876e4e1c6177d7e17c4e5e4819646f17a2221574573fa5a
+-- hash: 3448ef4e00d0e7937f2ddd17db51c48a8aa5b28532977c7c61effa142bd070ea
 
 name:           lambda-learner
 version:        0.1.0.0
@@ -34,6 +34,7 @@ library
       Paths_lambda_learner
   hs-source-dirs:
       src
+  ghc-options: -XLambdaCase -XGADTs
   build-depends:
       base >=4.7 && <5
     , containers
@@ -46,7 +47,7 @@ executable lambda-learner-exe
       Paths_lambda_learner
   hs-source-dirs:
       app
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N -XLambdaCase
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -XLambdaCase -XGADTs
   build-depends:
       base >=4.7 && <5
     , containers

@@ -3,6 +3,19 @@ module Priors () where
 import Calculi
 import Control.Monad.Bayes.Class
 import qualified Data.Map as Map
+import Data.Maybe
+
+exprType :: MonadSample m => m ExprType
+exprType = do
+  constructor <- uniformD [1..4]
+  case constructor of
+    1 -> return IntTy
+    2 -> return BoolTy
+    3 -> return StringTy
+    4 -> do
+      arg <- exprType
+      result <- exprType
+      return (FuncTy arg result)
 
 constant :: MonadSample m => m ConstantExpr
 constant = do
@@ -12,25 +25,49 @@ constant = do
     2 -> BoolConstant <$> bernoulli 0.5
     3 -> StrConstant <$> string
 
-string :: MonadSample m => m String
-string = undefined
+char :: MonadSample m => m Char
+char = uniformD ['a'..'z']
 
-expr :: MonadSample m => Map.Map String Expr -> m Expr
-expr context = do
-  constructor <- uniformD [1..(length context + 3)]
-  if constructor <= length context then do
-    variable <- uniformD (Map.keys context)
-    return $ Var variable
+string :: MonadSample m => m String
+string = do
+  flip <- bernoulli 0.5
+  c <- char
+  if flip then
+    string >>= \str -> return (c:str)
   else
-    case constructor - length context of
-      1 -> do
-        func <- expr context
-        arg <- expr context
-        return (App func arg)
-      2 -> do
-        name <- string
-        body <- expr context
-        return (Abs name body)
-      3 -> do
-        constant <- constant
-        return (Constant constant)
+    return [c]
+
+constExpr :: MonadSample m => Map.Map String ExprType -> ExprType -> m Expr
+constExpr _ IntTy = (Constant . IntConstant) <$> geometric 0.5
+constExpr _ BoolTy = (Constant . BoolConstant) <$> bernoulli 0.5
+constExpr _ StringTy = (Constant . StrConstant) <$> string
+
+operator :: MonadSample m => Map.Map String ExprType -> ExprType -> m Expr
+operator ctx (FuncTy a b) = do
+  arg <- string
+  body <- expr (Map.insert arg a ctx) b
+  return (Abs arg body)
+operator ctx t = do
+  generate_constant <- bernoulli 0.5
+  if generate_constant then
+    constExpr ctx t
+  else do
+    ta <- exprType
+    a <- expr ctx ta
+    func <- operator ctx (FuncTy ta t)
+    return (App func a)
+
+var :: MonadSample m => Map.Map String ExprType -> ExprType -> Maybe (m Expr)
+var ctx t | compatibles /= Map.empty =
+    Just (var_at_index <$> uniformD [0..length compatibles-1])
+  where
+    var_at_index index = Var . fst $ (Map.toList compatibles !! index)
+    compatibles = Map.filter (== t) ctx
+var _ _ = Nothing
+
+expr :: MonadSample m => Map.Map String ExprType -> ExprType -> m Expr
+expr ctx t = do
+  generate <- bernoulli 0.5
+  case var ctx t of
+    Just v | generate -> v
+    _ -> operator ctx t
