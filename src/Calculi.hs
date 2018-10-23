@@ -2,7 +2,8 @@ module Calculi where
 
 import qualified Data.Map as Map
 
-data ExprType = IntTy | BoolTy | StringTy | FuncTy ExprType ExprType
+data ExprType = IntTy | BoolTy | StringTy | FuncTy ExprType ExprType deriving
+  (Eq, Show)
 
 data ConstantExpr = IntConstant Int | BoolConstant Bool | StrConstant String
   deriving (Eq, Show)
