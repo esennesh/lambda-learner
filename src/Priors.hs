@@ -3,6 +3,7 @@ module Priors () where
 import Calculi
 import Control.Monad.Bayes.Class
 import qualified Data.Map as Map
+import Data.Maybe
 
 constant :: MonadSample m => m ConstantExpr
 constant = do
