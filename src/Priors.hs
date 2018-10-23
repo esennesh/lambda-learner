@@ -37,3 +37,8 @@ string = do
   else
     return [c]
 
+constExpr :: MonadSample m => Map.Map String ExprType -> ExprType -> m Expr
+constExpr _ IntTy = (Constant . IntConstant) <$> geometric 0.5
+constExpr _ BoolTy = (Constant . BoolConstant) <$> bernoulli 0.5
+constExpr _ StringTy = (Constant . StrConstant) <$> string
+
