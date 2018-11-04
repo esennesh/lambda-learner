@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3448ef4e00d0e7937f2ddd17db51c48a8aa5b28532977c7c61effa142bd070ea
+-- hash: 9df64ff25f34ba8715292533eba453a64253ecff015e9180363f50c42be3b83e
 
 name:           lambda-learner
 version:        0.1.0.0
@@ -39,6 +39,7 @@ library
       base >=4.7 && <5
     , containers
     , monad-bayes
+    , transformers
   default-language: Haskell2010
 
 executable lambda-learner-exe
@@ -53,6 +54,7 @@ executable lambda-learner-exe
     , containers
     , lambda-learner
     , monad-bayes
+    , transformers
   default-language: Haskell2010
 
 test-suite lambda-learner-test
@@ -68,4 +70,5 @@ test-suite lambda-learner-test
     , containers
     , lambda-learner
     , monad-bayes
+    , transformers
   default-language: Haskell2010
