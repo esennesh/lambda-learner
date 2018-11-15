@@ -46,7 +46,7 @@ operator :: MonadSample m => Map.Map String ExprType -> ExprType -> m Expr
 operator ctx (FuncTy a b) = do
   arg <- string
   body <- expr (Map.insert arg a ctx) b
-  return (Abs arg body)
+  return (Abs (arg, a) body)
 operator ctx t = do
   generate_constant <- bernoulli 0.5
   if generate_constant then

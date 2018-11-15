@@ -12,8 +12,8 @@ data ExprType = IntTy | BoolTy | StringTy | DoubleTy
 data ConstantExpr = IntConstant Int | BoolConstant Bool | StrConstant String
                   | DoubleConstant Double deriving (Eq, Show)
 
-data Expr = Var String | App Expr Expr | Abs String Expr | Flip Expr |
-            Constant ConstantExpr deriving (Eq, Show)
+data Expr = Var String | App Expr Expr | Abs (String, ExprType) Expr
+          | Flip Expr | Constant ConstantExpr deriving (Eq, Show)
 
 check :: Expr -> Map.Map String ExprType -> Maybe ExprType
 check (App func arg) context = check func context >>= \case
@@ -22,6 +22,12 @@ check (App func arg) context = check func context >>= \case
   where
     argType = check arg context
 check (Var name) context = Map.lookup name context
+check (Flip expr) context = do
+  DoubleTy <- check expr context
+  return BoolTy
+check (Abs (name, argTy) expr) context = do
+  resultTy <- check expr (Map.insert name argTy context)
+  return (FuncTy argTy resultTy)
 check (Constant constant) _ = Just $ case constant of
   IntConstant _ -> IntTy
   BoolConstant _ -> BoolTy
@@ -30,7 +36,7 @@ check (Constant constant) _ = Just $ case constant of
 
 eval :: MonadSample m => Expr -> Map.Map String Expr -> MaybeT m Expr
 eval (App func arg) context = eval func context >>= \case
-  Abs name body -> eval body (Map.insert name arg context)
+  Abs (name, _) body -> eval body (Map.insert name arg context)
   _ -> empty
 eval (Var name) context = case Map.lookup name context of
   Just e -> return e
@@ -39,4 +45,5 @@ eval (Flip e) context = do
   (Constant (DoubleConstant weight)) <- eval e context
   coin <- bernoulli weight
   return $ Constant (BoolConstant coin)
-eval constant _ = return constant
+eval constant@(Constant _) _ = return constant
+eval abs@(Abs _ _) _ = return abs
