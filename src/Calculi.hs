@@ -47,3 +47,8 @@ eval (Flip e) context = do
   return $ Constant (BoolConstant coin)
 eval constant@(Constant _) _ = return constant
 eval abs@(Abs _ _) _ = return abs
+
+value :: Expr -> Bool
+value (Abs binding expr) = True
+value (Constant c) = True
+value _ = False
