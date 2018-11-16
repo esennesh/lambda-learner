@@ -58,3 +58,6 @@ value :: Expr -> Bool
 value (Abs binding expr) = True
 value (Constant c) = True
 value _ = False
+
+runExpr :: MonadSample m => (Expr -> MaybeT m Expr) -> Expr -> m (Maybe Expr)
+runExpr evaluator = runMaybeT . evaluator
