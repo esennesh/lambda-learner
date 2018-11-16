@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9df64ff25f34ba8715292533eba453a64253ecff015e9180363f50c42be3b83e
+-- hash: 69c49072b4d8dbe8bdd2e9dd2828eee7edaa40a8bbc13751937354ed0374fa4d
 
 name:           lambda-learner
 version:        0.1.0.0
@@ -30,6 +30,7 @@ library
       Calculi
       Lib
       Priors
+      Rules
   other-modules:
       Paths_lambda_learner
   hs-source-dirs:
