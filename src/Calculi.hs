@@ -34,19 +34,25 @@ check (Constant constant) _ = Just $ case constant of
   StrConstant _ -> StringTy
   DoubleConstant _ -> DoubleTy
 
-eval :: MonadSample m => Expr -> Map.Map String Expr -> MaybeT m Expr
-eval (App func arg) context = eval func context >>= \case
-  Abs (name, _) body -> eval body (Map.insert name arg context)
+subst :: String -> Expr -> Expr -> Expr
+subst name val (Var name') | name == name' = val
+subst name val (App f a) = App (subst name val f) (subst name val a)
+subst name val (Abs (arg, argType) body) = Abs (arg, argType) body' where
+  body' = if name /= arg then subst name val body else body
+subst name val (Flip expr) = Flip (subst name val expr)
+subst _ _ expr = expr
+
+eval :: MonadSample m => Expr -> MaybeT m Expr
+eval (Var _) = empty
+eval (App func arg) = eval func >>= \case
+  Abs (name, _) body -> eval (subst name arg body)
   _ -> empty
-eval (Var name) context = case Map.lookup name context of
-  Just e -> return e
-  Nothing -> empty
-eval (Flip e) context = do
-  (Constant (DoubleConstant weight)) <- eval e context
+eval abs@(Abs _ _) = return abs
+eval (Flip e) = do
+  (Constant (DoubleConstant weight)) <- eval e
   coin <- bernoulli weight
   return $ Constant (BoolConstant coin)
-eval constant@(Constant _) _ = return constant
-eval abs@(Abs _ _) _ = return abs
+eval constant@(Constant _) = return constant
 
 value :: Expr -> Bool
 value (Abs binding expr) = True
