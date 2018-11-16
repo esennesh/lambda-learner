@@ -73,3 +73,52 @@ typingRules = [applicationTyping, varTyping, flipTyping, absTyping, constTyping]
 
 rulesCheck :: Context ExprType -> Expr -> MaybeT Identity ExprType
 rulesCheck ctx = step $ map (\rule -> rule ctx) typingRules
+
+applyStepAbs :: Monad m => RedexRule m
+applyStepAbs = Rule $ \case
+  (App (Abs (argName, argType) body) arg) | value arg ->
+    pure (subst argName arg body)
+  _ -> empty
+
+applyStepLeft :: MonadSample m => RedexRule m
+applyStepLeft = Rule $ \case
+  (App func arg) -> do
+    func' <- rulesStep func
+    return (App func' arg)
+  _ -> empty
+
+applyStepRight :: MonadSample m => RedexRule m
+applyStepRight = Rule $ \case
+  App func arg | value func -> do
+    arg' <- rulesStep arg
+    return (App func arg')
+  _ -> empty
+
+flipStepSample :: MonadSample m => RedexRule m
+flipStepSample = Rule $ \case
+  Flip (Constant (DoubleConstant p)) -> do
+    coin <- bernoulli p
+    return (Constant (BoolConstant coin))
+  _ -> empty
+
+flipStepProb :: MonadSample m => RedexRule m
+flipStepProb = Rule $ \case
+  Flip expr -> do
+    expr' <- rulesStep expr
+    return (Flip expr')
+  _ -> empty
+
+smallStepRules :: MonadSample m => [RedexRule m]
+smallStepRules = [applyStepAbs, applyStepLeft, applyStepRight,
+                  flipStepSample, flipStepProb]
+
+rulesStep :: MonadSample m => Expr -> MaybeT m Expr
+rulesStep = step smallStepRules
+
+rulesEval :: MonadSample m => Expr -> MaybeT m Expr
+rulesEval expr = do
+  expr' <- rulesStep expr
+  if value expr' then
+    return expr'
+  else
+    rulesEval expr'
