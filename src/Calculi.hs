@@ -4,6 +4,8 @@ import Control.Applicative
 import Control.Monad.Bayes.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
+import Data.Functor.Compose
+import Data.Functor.Foldable
 import qualified Data.Map as Map
 
 data ExprType = IntTy | BoolTy | StringTy | DoubleTy
@@ -11,6 +13,10 @@ data ExprType = IntTy | BoolTy | StringTy | DoubleTy
 
 data ConstantExpr = IntConstant Int | BoolConstant Bool | StrConstant String
                   | DoubleConstant Double deriving (Eq, Show)
+
+data ExprF f = VarF String | AppF f f | AbsF (String, ExprType) f | FlipF f
+             | ConstantF ConstantExpr deriving (Eq, Functor, Show)
+type PartialExpr = Fix (Compose Maybe ExprF)
 
 data Expr = Var String | App Expr Expr | Abs (String, ExprType) Expr
           | Flip Expr | Constant ConstantExpr deriving (Eq, Show)
