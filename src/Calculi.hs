@@ -18,6 +18,15 @@ data ExprF f = VarF String | AppF f f | AbsF (String, ExprType) f | FlipF f
              | ConstantF ConstantExpr deriving (Eq, Functor, Show)
 type PartialExpr = Fix (Compose Maybe ExprF)
 
+varExpr :: String -> Fix ExprF
+varExpr = Fix . VarF
+
+app :: Fix ExprF -> Fix ExprF -> Fix ExprF
+app x y = Fix $ AppF x y
+
+flip :: Fix ExprF -> Fix ExprF
+flip = Fix . FlipF
+
 data Expr = Var String | App Expr Expr | Abs (String, ExprType) Expr
           | Flip Expr | Constant ConstantExpr deriving (Eq, Show)
 
