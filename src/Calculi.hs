@@ -14,64 +14,69 @@ data ExprType = IntTy | BoolTy | StringTy | DoubleTy
 data ConstantExpr = IntConstant Int | BoolConstant Bool | StrConstant String
                   | DoubleConstant Double deriving (Eq, Show)
 
-data ExprF f = VarF String | AppF f f | AbsF (String, ExprType) f | FlipF f
-             | ConstantF ConstantExpr deriving (Eq, Functor, Show)
+data ExprF f = Var String | App f f | Abs (String, ExprType) f | Flip f
+             | Constant ConstantExpr deriving (Eq, Functor, Show)
 type PartialExpr = Fix (Compose Maybe ExprF)
+type Expr = Fix ExprF
 
-varExpr :: String -> Fix ExprF
-varExpr = Fix . VarF
+varExpr :: String -> Expr
+varExpr = Fix . Var
 
-app :: Fix ExprF -> Fix ExprF -> Fix ExprF
-app x y = Fix $ AppF x y
+app :: Expr -> Expr -> Expr
+app x y = Fix $ App x y
 
-flip :: Fix ExprF -> Fix ExprF
-flip = Fix . FlipF
+abs :: String -> ExprType -> Expr -> Expr
+abs arg argType body = Fix $ Abs (arg, argType) body
 
-data Expr = Var String | App Expr Expr | Abs (String, ExprType) Expr
-          | Flip Expr | Constant ConstantExpr deriving (Eq, Show)
+flip :: Expr -> Expr
+flip = Fix . Flip
+
+constant :: ConstantExpr -> Expr
+constant = Fix . Constant
 
 check :: Expr -> Map.Map String ExprType -> Maybe ExprType
-check (App func arg) context = check func context >>= \case
+check (Fix (App func arg)) context = check func context >>= \case
   FuncTy argType t -> Just t
   _ -> Nothing
   where
     argType = check arg context
-check (Var name) context = Map.lookup name context
-check (Flip expr) context = do
+check (Fix (Var name)) context = Map.lookup name context
+check (Fix (Flip expr)) context = do
   DoubleTy <- check expr context
   return BoolTy
-check (Abs (name, argTy) expr) context = do
+check (Fix (Abs (name, argTy) expr)) context = do
   resultTy <- check expr (Map.insert name argTy context)
   return (FuncTy argTy resultTy)
-check (Constant constant) _ = Just $ case constant of
+check (Fix (Constant constant)) _ = Just $ case constant of
   IntConstant _ -> IntTy
   BoolConstant _ -> BoolTy
   StrConstant _ -> StringTy
   DoubleConstant _ -> DoubleTy
 
 subst :: String -> Expr -> Expr -> Expr
-subst name val (Var name') | name == name' = val
-subst name val (App f a) = App (subst name val f) (subst name val a)
-subst name val (Abs (arg, argType) body) = Abs (arg, argType) body' where
-  body' = if name /= arg then subst name val body else body
-subst name val (Flip expr) = Flip (subst name val expr)
-subst _ _ expr = expr
+subst name val = para $ \case
+  Var name' | name == name' -> val
+  Abs (arg, argType) (body, body') -> Fix $ Abs (arg, argType) body'' where
+    body'' = if name /= arg then body' else body
+  expr -> Fix $ fmap snd expr
 
 eval :: MonadSample m => Expr -> MaybeT m Expr
-eval (Var _) = empty
-eval (App func arg) = eval func >>= \case
-  Abs (name, _) body -> eval (subst name arg body)
-  _ -> empty
-eval abs@(Abs _ _) = return abs
-eval (Flip e) = do
-  (Constant (DoubleConstant weight)) <- eval e
-  coin <- bernoulli weight
-  return $ Constant (BoolConstant coin)
-eval constant@(Constant _) = return constant
+eval = para $ \case
+  Var _ -> empty
+  App (_, func) (_, arg) -> do
+    (Fix (Abs (name, _) body)) <- func
+    argVal <- arg
+    eval (subst name argVal body)
+  Abs (name, argType) (body, _) -> return (Fix $ Abs (name, argType) body)
+  Flip (_, weightExpr) -> do
+    Fix (Constant (DoubleConstant weight)) <- weightExpr
+    coin <- bernoulli weight
+    return . Fix $ Constant (BoolConstant coin)
+  Constant c -> return . Fix $ (Constant c)
 
 value :: Expr -> Bool
-value (Abs binding expr) = True
-value (Constant c) = True
+value (Fix (Abs binding expr)) = True
+value (Fix (Constant c)) = True
 value _ = False
 
 runExpr :: MonadSample m => (Expr -> MaybeT m Expr) -> Expr -> m (Maybe Expr)
