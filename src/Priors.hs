@@ -5,6 +5,7 @@ import Control.Monad.Bayes.Class
 import Data.Functor.Foldable
 import qualified Data.Map as Map
 import Data.Maybe
+import qualified Data.Vector as V
 
 exprType :: MonadSample m => m ExprType
 exprType = do
@@ -72,3 +73,16 @@ expr ctx t = do
   case var ctx t of
     Just v | generate -> v
     _ -> operator ctx t
+
+sizedValues :: Expr -> [(Expr, Int)]
+sizedValues = map (\e -> (e, length (unfix e) + 1)) . values
+
+weightedValues :: Expr -> [(Expr, Double)]
+weightedValues expr = map (\(e, s) -> (e, fromIntegral s / total)) $ vals where
+  vals = sizedValues expr
+  total = fromIntegral . sum $ map snd vals
+
+subValue :: MonadSample m => Expr -> m Expr
+subValue e = let (vals, weights) = unzip (weightedValues e) in do
+  idx <- categorical (V.fromList weights)
+  return (vals !! idx)

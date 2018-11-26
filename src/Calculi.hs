@@ -15,7 +15,7 @@ data ConstantExpr = IntConstant Int | BoolConstant Bool | StrConstant String
                   | DoubleConstant Double deriving (Eq, Show)
 
 data ExprF f = Var String | App f f | Abs (String, ExprType) f | Flip f
-             | Constant ConstantExpr deriving (Eq, Functor, Show)
+             | Constant ConstantExpr deriving (Eq, Foldable, Functor, Show)
 type PartialExpr = Fix (Compose Maybe ExprF)
 type Expr = Fix ExprF
 
@@ -25,8 +25,8 @@ varExpr = Fix . Var
 app :: Expr -> Expr -> Expr
 app x y = Fix $ App x y
 
-abs :: String -> ExprType -> Expr -> Expr
-abs arg argType body = Fix $ Abs (arg, argType) body
+abstr :: String -> ExprType -> Expr -> Expr
+abstr arg argType body = Fix $ Abs (arg, argType) body
 
 flip :: Expr -> Expr
 flip = Fix . Flip
@@ -78,6 +78,11 @@ value :: Expr -> Bool
 value (Fix (Abs binding expr)) = True
 value (Fix (Constant c)) = True
 value _ = False
+
+values :: Expr -> [Expr]
+values = para $ \case
+  Abs (arg, argType) (expr, exprVals) -> (abstr arg argType expr):exprVals
+  Constant c -> [constant c]
 
 runExpr :: MonadSample m => (Expr -> MaybeT m Expr) -> Expr -> m (Maybe Expr)
 runExpr evaluator = runMaybeT . evaluator
