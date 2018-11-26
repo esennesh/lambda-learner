@@ -23,8 +23,9 @@ dependencies:
 - base >= 4.7 && < 5
 - containers
 - monad-bayes
-- transformers
 - recursion-schemes
+- transformers
+- vector
 
 library:
   source-dirs: src
