@@ -7,6 +7,7 @@ import Control.Monad.Bayes.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Data.Foldable
+import Data.Functor.Foldable
 import Data.Functor.Identity
 import qualified Data.Map as Map
 
@@ -34,7 +35,7 @@ step :: Monad m => [Rule e m r] -> e -> MaybeT m r
 step rules e = (rule $ asum rules) $ e
 
 applicationTyping :: TypingRule Identity
-applicationTyping ctx = Rule $ \case
+applicationTyping ctx = Rule $ \e -> case unfix e of
   App func arg -> do
     FuncTy argType t <- rulesCheck ctx func
     argType <- rulesCheck ctx arg
@@ -42,26 +43,26 @@ applicationTyping ctx = Rule $ \case
   _ -> empty
 
 varTyping :: TypingRule Identity
-varTyping ctx = Rule $ \case
+varTyping ctx = Rule $ \e -> case unfix e of
   Var name -> (MaybeT . return) (Map.lookup name ctx)
   _ -> empty
 
 flipTyping :: TypingRule Identity
-flipTyping ctx = Rule $ \case
+flipTyping ctx = Rule $ \e -> case unfix e of
   Flip expr -> do
     DoubleTy <- rulesCheck ctx expr
     return BoolTy
   _ -> empty
 
 absTyping :: TypingRule Identity
-absTyping ctx = Rule $ \case
+absTyping ctx = Rule $ \e -> case unfix e of
   Abs (name, argType) body -> do
     bodyType <- rulesCheck (Map.insert name argType ctx) body
     return (FuncTy argType bodyType)
   _ -> empty
 
 constTyping :: TypingRule Identity
-constTyping ctx = Rule $ \case
+constTyping ctx = Rule $ \e -> case unfix e of
   Constant c -> pure (constType c) where
     constType (IntConstant _) = IntTy
     constType (BoolConstant _) = BoolTy
@@ -75,37 +76,37 @@ rulesCheck :: Context ExprType -> Expr -> MaybeT Identity ExprType
 rulesCheck ctx = step $ map (\rule -> rule ctx) typingRules
 
 applyStepAbs :: Monad m => RedexRule m
-applyStepAbs = Rule $ \case
-  (App (Abs (argName, argType) body) arg) | value arg ->
+applyStepAbs = Rule $ \e -> case unfix e of
+  (App (Fix (Abs (argName, argType) body)) arg) | value arg ->
     pure (subst argName arg body)
   _ -> empty
 
 applyStepLeft :: MonadSample m => RedexRule m
-applyStepLeft = Rule $ \case
+applyStepLeft = Rule $ \e -> case unfix e of
   (App func arg) -> do
     func' <- rulesStep func
-    return (App func' arg)
+    return . Fix $ App func' arg
   _ -> empty
 
 applyStepRight :: MonadSample m => RedexRule m
-applyStepRight = Rule $ \case
+applyStepRight = Rule $ \e -> case unfix e of
   App func arg | value func -> do
     arg' <- rulesStep arg
-    return (App func arg')
+    return . Fix $ App func arg'
   _ -> empty
 
 flipStepSample :: MonadSample m => RedexRule m
-flipStepSample = Rule $ \case
-  Flip (Constant (DoubleConstant p)) -> do
+flipStepSample = Rule $ \e -> case unfix e of
+  Flip (Fix (Constant (DoubleConstant p))) -> do
     coin <- bernoulli p
-    return (Constant (BoolConstant coin))
+    return . Fix $ Constant (BoolConstant coin)
   _ -> empty
 
 flipStepProb :: MonadSample m => RedexRule m
-flipStepProb = Rule $ \case
+flipStepProb = Rule $ \e -> case unfix e of
   Flip expr -> do
     expr' <- rulesStep expr
-    return (Flip expr')
+    return . Fix $ Flip expr'
   _ -> empty
 
 smallStepRules :: MonadSample m => [RedexRule m]
