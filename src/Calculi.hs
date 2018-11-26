@@ -79,5 +79,10 @@ value (Fix (Abs binding expr)) = True
 value (Fix (Constant c)) = True
 value _ = False
 
+values :: Expr -> [Expr]
+values = para $ \case
+  Abs (arg, argType) (expr, exprVals) -> (abstr arg argType expr):exprVals
+  Constant c -> [constant c]
+
 runExpr :: MonadSample m => (Expr -> MaybeT m Expr) -> Expr -> m (Maybe Expr)
 runExpr evaluator = runMaybeT . evaluator
