@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6edbec97d4ba97a67e8d5cc743f356a88de1a5adef55e6478c97c3ec4c0d4bd3
+-- hash: b09dcc7b2d4ae73946bd2e551a9c71af7b82d6e683b5a5dcb6afabadb46c11c8
 
 name:           lambda-learner
 version:        0.1.0.0
@@ -35,7 +35,7 @@ library
       Paths_lambda_learner
   hs-source-dirs:
       src
-  default-extensions: LambdaCase DeriveFunctor
+  default-extensions: LambdaCase DeriveFunctor DeriveFoldable
   build-depends:
       base >=4.7 && <5
     , containers
