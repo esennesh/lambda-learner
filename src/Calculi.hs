@@ -15,7 +15,7 @@ data ConstantExpr = IntConstant Int | BoolConstant Bool | StrConstant String
                   | DoubleConstant Double deriving (Eq, Show)
 
 data ExprF f = Var String | App f f | Abs (String, ExprType) f | Flip f
-             | Constant ConstantExpr deriving (Eq, Functor, Show)
+             | Constant ConstantExpr deriving (Eq, Foldable, Functor, Show)
 type PartialExpr = Fix (Compose Maybe ExprF)
 type Expr = Fix ExprF
 
