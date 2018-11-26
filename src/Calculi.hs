@@ -25,8 +25,8 @@ varExpr = Fix . Var
 app :: Expr -> Expr -> Expr
 app x y = Fix $ App x y
 
-abs :: String -> ExprType -> Expr -> Expr
-abs arg argType body = Fix $ Abs (arg, argType) body
+abstr :: String -> ExprType -> Expr -> Expr
+abstr arg argType body = Fix $ Abs (arg, argType) body
 
 flip :: Expr -> Expr
 flip = Fix . Flip
