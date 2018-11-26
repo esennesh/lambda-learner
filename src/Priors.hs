@@ -72,3 +72,11 @@ expr ctx t = do
   case var ctx t of
     Just v | generate -> v
     _ -> operator ctx t
+
+sizedValues :: Expr -> [(Expr, Int)]
+sizedValues = map (\e -> (e, length (unfix e) + 1)) . values
+
+weightedValues :: Expr -> [(Expr, Double)]
+weightedValues expr = map (\(e, s) -> (e, fromIntegral s / total)) $ vals where
+  vals = sizedValues expr
+  total = fromIntegral . sum $ map snd vals
