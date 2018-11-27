@@ -20,6 +20,13 @@ data ExprF f = Var String | App f f | Abs (String, ExprType) f | Flip f
 type PartialExpr = Fix (Compose Maybe ExprF)
 type Expr = Fix ExprF
 
+instance Eq1 ExprF where
+  liftEq _ (Var v) (Var v') = v == v'
+  liftEq eq (App f a)  (App f' a') = (eq f f') && (eq a a')
+  liftEq eq (Abs (_, t) b) (Abs (_, t') b') = t == t' && eq b b'
+  liftEq eq (Flip e) (Flip e') = eq e e'
+  liftEq _ (Constant c) (Constant c') = c == c'
+
 instance Show1 ExprF where
   liftShowsPrec _ _ d (Var v) = showsUnaryWith showsPrec "Var" d v
   liftShowsPrec sp _ d (App f f') = showsBinaryWith sp sp "App" d f f'
