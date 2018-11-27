@@ -10,6 +10,8 @@ import Data.Foldable
 import Data.Functor.Foldable
 import Data.Functor.Identity
 import qualified Data.Map as Map
+import Data.Maybe
+import Data.Pattern as Pattern
 import Priors
 
 type Context t = Map.Map String t
@@ -128,14 +130,26 @@ rulesEval expr = do
 -- Note that in general when inverting expressions, we have to preserve their
 -- type and value.
 
-type ExpansionRule m = Rule Expr m Expr
+type ClauseRule e m r = Clause e (m r)
+type ExpansionRule m = ClauseRule Expr m Expr
 
 -- Invert applyStepAbs by factoring a value out of an expression, creating an
 -- abstraction.
 applyExpandAbs :: MonadSample m => ExpansionRule m
-applyExpandAbs = Rule $ \e -> do
-  sub <- lift $ subValue e
-  subType <- MaybeT . return $ check sub Map.empty
-  varName <- lift string
+applyExpandAbs = Pattern.var ->> \e -> do
+  sub <- subValue e
+  subType <- return . fromJust $ check sub Map.empty
+  varName <- string
   let body = replace sub (varExpr varName) e in
     return (app (abstr varName subType body) sub)
+
+expandRules :: MonadSample m => [ExpansionRule m]
+expandRules = [applyExpandAbs]
+
+expandStep :: MonadSample m => Expr -> m Expr
+expandStep e = do
+  idx <- uniformD [0..length applicable - 1]
+  match e (applicable !! idx)
+  where
+    t = fromJust $ check e Map.empty
+    applicable = [r | r <- expandRules, isJust (tryMatch e r)]
