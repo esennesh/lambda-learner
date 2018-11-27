@@ -76,6 +76,10 @@ subst name val = para $ \case
     body'' = if name /= arg then body' else body
   expr -> Fix $ fmap snd expr
 
+replace :: Expr -> Expr -> Expr -> Expr
+replace sub replacement = cata $ \e ->
+  if e == unfix sub then replacement else Fix e
+
 eval :: MonadSample m => Expr -> MaybeT m Expr
 eval = para $ \case
   Var _ -> empty
