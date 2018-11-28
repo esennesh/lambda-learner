@@ -143,8 +143,17 @@ applyExpandAbs = Pattern.var ->> \e -> do
   let body = replace sub (varExpr varName) e in
     return (app (abstr varName subType body) sub)
 
+applyExpandLeft :: MonadSample m => ExpansionRule m
+applyExpandLeft = pattern Pattern.var Pattern.var ->> \func arg -> do
+  func' <- expandStep func
+  return (app func' arg)
+  where
+    pattern = mk2 $ \e -> case unfix e of
+      App f a -> Just (f, a)
+      _ -> Nothing
+
 expandRules :: MonadSample m => [ExpansionRule m]
-expandRules = [applyExpandAbs]
+expandRules = [applyExpandAbs, applyExpandLeft]
 
 expandStep :: MonadSample m => Expr -> m Expr
 expandStep e = do
