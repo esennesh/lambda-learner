@@ -152,8 +152,17 @@ applyExpandLeft = pattern Pattern.var Pattern.var ->> \func arg -> do
       App f a -> Just (f, a)
       _ -> Nothing
 
+applyExpandRight :: MonadSample m => ExpansionRule m
+applyExpandRight = pattern Pattern.var Pattern.var ->> \func arg -> do
+  arg' <- expandStep arg
+  return (app func arg')
+  where
+    pattern = mk2 $ \e -> case unfix e of
+      App f a -> Just (f, a)
+      _ -> Nothing
+
 expandRules :: MonadSample m => [ExpansionRule m]
-expandRules = [applyExpandAbs, applyExpandLeft]
+expandRules = [applyExpandAbs, applyExpandLeft, applyExpandRight]
 
 expandStep :: MonadSample m => Expr -> m Expr
 expandStep e = do
