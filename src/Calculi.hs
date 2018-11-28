@@ -4,6 +4,7 @@ import Control.Applicative
 import Control.Monad.Bayes.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
+import Data.Functor.Classes
 import Data.Functor.Compose
 import Data.Functor.Foldable
 import qualified Data.Map as Map
@@ -18,6 +19,14 @@ data ExprF f = Var String | App f f | Abs (String, ExprType) f | Flip f
              | Constant ConstantExpr deriving (Eq, Foldable, Functor, Show)
 type PartialExpr = Fix (Compose Maybe ExprF)
 type Expr = Fix ExprF
+
+instance Show1 ExprF where
+  liftShowsPrec _ _ d (Var v) = showsUnaryWith showsPrec "Var" d v
+  liftShowsPrec sp _ d (App f f') = showsBinaryWith sp sp "App" d f f'
+  liftShowsPrec sp _ d (Abs tup f) =
+    showString ("Abs " ++ show tup) . showChar ' ' . sp 11 f
+  liftShowsPrec sp _ d (Flip f) = showsUnaryWith sp "Flip" d f
+  liftShowsPrec _ _ d (Constant c) = showsUnaryWith showsPrec "Constant" d c
 
 varExpr :: String -> Expr
 varExpr = Fix . Var
