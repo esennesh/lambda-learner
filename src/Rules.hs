@@ -161,8 +161,18 @@ applyExpandRight = pattern Pattern.var Pattern.var ->> \func arg -> do
       App f a -> Just (f, a)
       _ -> Nothing
 
+flipExpandSample :: MonadSample m => ExpansionRule m
+flipExpandSample = pattern Pattern.var ->> \_ -> do
+  p <- uniform 0 1
+  return (Calculi.flip (Calculi.constant (DoubleConstant p)))
+  where
+    pattern = mk1 $ \e -> case unfix e of
+      Constant (BoolConstant b) -> Just b
+      _ -> Nothing
+
 expandRules :: MonadSample m => [ExpansionRule m]
-expandRules = [applyExpandAbs, applyExpandLeft, applyExpandRight]
+expandRules = [applyExpandAbs, applyExpandLeft, applyExpandRight,
+               flipExpandSample]
 
 expandStep :: MonadSample m => Expr -> m Expr
 expandStep e = do
