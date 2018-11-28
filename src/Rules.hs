@@ -170,9 +170,18 @@ flipExpandSample = pattern Pattern.var ->> \_ -> do
       Constant (BoolConstant b) -> Just b
       _ -> Nothing
 
+flipExpandProb :: MonadSample m => ExpansionRule m
+flipExpandProb = pattern Pattern.var ->> \prob -> do
+  prob' <- expandStep prob
+  return (Calculi.flip prob')
+  where
+    pattern = mk1 $ \e -> case unfix e of
+      Flip prob -> Just prob
+      _ -> Nothing
+
 expandRules :: MonadSample m => [ExpansionRule m]
 expandRules = [applyExpandAbs, applyExpandLeft, applyExpandRight,
-               flipExpandSample]
+               flipExpandSample, flipExpandProb]
 
 expandStep :: MonadSample m => Expr -> m Expr
 expandStep e = do
