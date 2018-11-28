@@ -43,6 +43,7 @@ constExpr :: MonadSample m => Map.Map String ExprType -> ExprType -> m Expr
 constExpr _ IntTy = (Fix . Constant . IntConstant) <$> geometric 0.5
 constExpr _ BoolTy = (Fix . Constant . BoolConstant) <$> bernoulli 0.5
 constExpr _ StringTy = (Fix . Constant . StrConstant) <$> string
+constExpr _ DoubleTy = (Fix . Constant . DoubleConstant) <$> normal 0.0 1.0
 
 operator :: MonadSample m => Map.Map String ExprType -> ExprType -> m Expr
 operator ctx (FuncTy a b) = do
