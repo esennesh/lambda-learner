@@ -1,4 +1,4 @@
-module Priors () where
+module Priors where
 
 import Calculi
 import Control.Monad.Bayes.Class

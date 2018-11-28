@@ -10,6 +10,9 @@ import Data.Foldable
 import Data.Functor.Foldable
 import Data.Functor.Identity
 import qualified Data.Map as Map
+import Data.Maybe
+import Data.Pattern as Pattern
+import Priors
 
 type Context t = Map.Map String t
 data Rule e m r = Rule {rule :: e -> MaybeT m r}
@@ -123,3 +126,67 @@ rulesEval expr = do
     return expr'
   else
     rulesEval expr'
+
+-- Note that in general when inverting expressions, we have to preserve their
+-- type and value.
+
+type ClauseRule e m r = Clause e (m r)
+type ExpansionRule m = ClauseRule Expr m Expr
+
+-- Invert applyStepAbs by factoring a value out of an expression, creating an
+-- abstraction.
+applyExpandAbs :: MonadSample m => ExpansionRule m
+applyExpandAbs = Pattern.var ->> \e -> do
+  sub <- subValue e
+  subType <- return . fromJust $ check sub Map.empty
+  varName <- string
+  let body = replace sub (varExpr varName) e in
+    return (app (abstr varName subType body) sub)
+
+applyExpandLeft :: MonadSample m => ExpansionRule m
+applyExpandLeft = pattern Pattern.var Pattern.var ->> \func arg -> do
+  func' <- expandStep func
+  return (app func' arg)
+  where
+    pattern = mk2 $ \e -> case unfix e of
+      App f a -> Just (f, a)
+      _ -> Nothing
+
+applyExpandRight :: MonadSample m => ExpansionRule m
+applyExpandRight = pattern Pattern.var Pattern.var ->> \func arg -> do
+  arg' <- expandStep arg
+  return (app func arg')
+  where
+    pattern = mk2 $ \e -> case unfix e of
+      App f a -> Just (f, a)
+      _ -> Nothing
+
+flipExpandSample :: MonadSample m => ExpansionRule m
+flipExpandSample = pattern Pattern.var ->> \_ -> do
+  p <- uniform 0 1
+  return (Calculi.flip (Calculi.constant (DoubleConstant p)))
+  where
+    pattern = mk1 $ \e -> case unfix e of
+      Constant (BoolConstant b) -> Just b
+      _ -> Nothing
+
+flipExpandProb :: MonadSample m => ExpansionRule m
+flipExpandProb = pattern Pattern.var ->> \prob -> do
+  prob' <- expandStep prob
+  return (Calculi.flip prob')
+  where
+    pattern = mk1 $ \e -> case unfix e of
+      Flip prob -> Just prob
+      _ -> Nothing
+
+expandRules :: MonadSample m => [ExpansionRule m]
+expandRules = [applyExpandAbs, applyExpandLeft, applyExpandRight,
+               flipExpandSample, flipExpandProb]
+
+expandStep :: MonadSample m => Expr -> m Expr
+expandStep e = do
+  idx <- uniformD [0..length applicable - 1]
+  match e (applicable !! idx)
+  where
+    t = fromJust $ check e Map.empty
+    applicable = [r | r <- expandRules, isJust (tryMatch e r)]
