@@ -190,3 +190,10 @@ expandStep e = do
   where
     t = fromJust $ check e Map.empty
     applicable = [r | r <- expandRules, isJust (tryMatch e r)]
+
+expandSteps :: MonadSample m => Int -> Expr -> m Expr
+expandSteps 0 e = return e
+expandSteps k e = expandStep e >>= expandSteps (k-1)
+
+expand :: MonadSample m => Double -> Expr -> m Expr
+expand p e = (geometric p) >>= \k -> expandSteps k e
