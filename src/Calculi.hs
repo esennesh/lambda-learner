@@ -101,7 +101,10 @@ value _ = False
 
 values :: Expr -> [Expr]
 values = para $ \case
+  Var _ -> []
+  App (_, vs1) (_, vs2) -> vs1 ++ vs2
   Abs (arg, argType) (expr, exprVals) -> (abstr arg argType expr):exprVals
+  Flip (_, vs) -> vs
   Constant c -> [constant c]
 
 runExpr :: MonadSample m => (Expr -> MaybeT m Expr) -> Expr -> m (Maybe Expr)
