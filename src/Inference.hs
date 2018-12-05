@@ -1,6 +1,8 @@
 module Inference where
 
+import Control.Monad
 import Control.Monad.Bayes.Class
+import Control.Monad.Bayes.Population
 import Control.Monad.Bayes.Sampler
 import Control.Monad.Bayes.Traced
 import Control.Monad.Trans.Maybe
@@ -27,3 +29,6 @@ importancePosterior val = do
   let observation = prior >>= \x -> likelihood val x
   let proposal = expand 0.1 val
   importance observation proposal
+
+runTracedPopulation :: MonadSample m => Traced (Population m) a -> m [a]
+runTracedPopulation = liftM (map fst) . runPopulation . resampleSystematic . marginal
