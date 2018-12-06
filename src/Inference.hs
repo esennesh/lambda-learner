@@ -5,6 +5,7 @@ import Control.Monad.Bayes.Class
 import Control.Monad.Bayes.Population
 import Control.Monad.Bayes.Sampler
 import Control.Monad.Bayes.Traced
+import Control.Monad.Bayes.Weighted
 import Control.Monad.Trans.Maybe
 import qualified Data.Map as Map
 import Data.Maybe
@@ -22,13 +23,11 @@ likelihood obsVal e = do
       return val
     Nothing -> return e
 
-importancePosterior :: MonadInfer m => Expr -> Traced m Expr
-importancePosterior val = do
-  let exprType = fromJust $ check val Map.empty
-  let prior = expr Map.empty exprType
-  let observation = prior >>= \x -> likelihood val x
-  let proposal = expand 0.1 val
-  importance observation proposal
+importancePosterior :: MonadInfer m => Expr -> Weighted m Expr
+importancePosterior val =
+  scoreImportance (expand 0.1 val) priorScore >>= likelihood val where
+    exprType = fromJust $ check val Map.empty
+    priorScore = fromJust . exprScore Map.empty exprType
 
 runTracedPopulation :: MonadSample m => Traced (Population m) a -> m [a]
 runTracedPopulation = liftM (map fst) . runPopulation . resampleSystematic . marginal
