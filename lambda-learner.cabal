@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3798b1a75d68797980b45deb61fa53e798c8e709665e66813d6216520a87047f
+-- hash: 8a1b96af791653a8cf18a32f40022219523c023062baee88893eb06b5a9f89c2
 
 name:           lambda-learner
 version:        0.1.0.0
@@ -41,6 +41,7 @@ library
       base >=4.7 && <5
     , containers
     , first-class-patterns
+    , log-domain
     , monad-bayes
     , recursion-schemes
     , transformers
@@ -60,6 +61,7 @@ executable lambda-learner-exe
     , containers
     , first-class-patterns
     , lambda-learner
+    , log-domain
     , monad-bayes
     , recursion-schemes
     , transformers
@@ -79,6 +81,7 @@ test-suite lambda-learner-test
     , containers
     , first-class-patterns
     , lambda-learner
+    , log-domain
     , monad-bayes
     , recursion-schemes
     , transformers
