@@ -72,7 +72,7 @@ expr :: MonadSample m => Map.Map String ExprType -> ExprType -> m Expr
 expr ctx t = do
   generate <- bernoulli 0.5
   case var ctx t of
-    Just v | generate -> v
+    Just v | not generate -> v
     _ -> operator ctx t
 
 sizedValues :: Expr -> [(Expr, Int)]
