@@ -26,6 +26,7 @@ instance Eq1 ExprF where
   liftEq eq (Abs (_, t) b) (Abs (_, t') b') = t == t' && eq b b'
   liftEq eq (Flip e) (Flip e') = eq e e'
   liftEq _ (Constant c) (Constant c') = c == c'
+  liftEq _ _ _ = False
 
 instance Show1 ExprF where
   liftShowsPrec _ _ d (Var v) = showsUnaryWith showsPrec "Var" d v
