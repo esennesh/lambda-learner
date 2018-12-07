@@ -6,6 +6,7 @@ import Data.Functor.Foldable
 import qualified Data.Map as Map
 import Data.Maybe
 import qualified Data.Vector as V
+import Numeric.Log
 
 exprType :: MonadSample m => m ExprType
 exprType = do
@@ -60,20 +61,51 @@ operator ctx t = do
     func <- operator ctx (FuncTy ta t)
     return . Fix $ App func a
 
+compatibles :: Map.Map String ExprType -> ExprType -> Map.Map String ExprType
+compatibles ctx t = Map.filter (== t) ctx
+
 var :: MonadSample m => Map.Map String ExprType -> ExprType -> Maybe (m Expr)
-var ctx t | compatibles /= Map.empty =
-    Just (var_at_index <$> uniformD [0..length compatibles-1])
+var ctx t | compats /= Map.empty =
+    Just (var_at_index <$> uniformD [0..length compats-1])
   where
-    var_at_index index = Fix . Var . fst $ (Map.toList compatibles !! index)
-    compatibles = Map.filter (== t) ctx
+    var_at_index index = Fix . Var . fst $ (Map.toList compats !! index)
+    compats = compatibles ctx t
 var _ _ = Nothing
 
 expr :: MonadSample m => Map.Map String ExprType -> ExprType -> m Expr
 expr ctx t = do
   generate <- bernoulli 0.5
   case var ctx t of
-    Just v | generate -> v
+    Just v | not generate -> v
     _ -> operator ctx t
+
+exprScore :: Map.Map String ExprType -> ExprType -> Expr -> Maybe (Log Double)
+exprScore ctx t = para $ \case
+  Var name -> case Map.lookup name ctx of
+    Just t' | t == t' -> Just $ 0.5 * 1 / (fromIntegral $ length (compatibles ctx t))
+    Nothing -> Nothing
+  op -> (* 0.5) <$> operatorScore ctx t (Fix (fmap fst op))
+
+operatorScore :: Map.Map String ExprType -> ExprType -> Expr -> Maybe (Log Double)
+operatorScore ctx (FuncTy a b) = cata $ \case
+  Abs (arg, a') body -> do
+    justBody <- body
+    return $ (stringScore arg) * justBody
+operatorScore ctx t = cata $ \case
+  App func arg -> do
+    func' <- func
+    arg' <- arg
+    return $ 0.5 * func' * arg'
+  Constant c -> Just $ 0.5 * constScore c
+
+constScore :: ConstantExpr -> Log Double
+constScore (IntConstant i) = 0.5 ** (fromIntegral i)
+constScore (BoolConstant _) = 0.5
+constScore (StrConstant str) = stringScore str
+constScore (DoubleConstant d) = normalPdf 0.0 1.0 d
+
+stringScore str = (0.5 ** fraclen str) * (1.0/26.0) ** (fraclen str) where
+  fraclen arg = fromIntegral $ length arg
 
 sizedValues :: Expr -> [(Expr, Int)]
 sizedValues = map (\e -> (e, length (unfix e) + 1)) . values
@@ -81,7 +113,7 @@ sizedValues = map (\e -> (e, length (unfix e) + 1)) . values
 weightedValues :: Expr -> [(Expr, Double)]
 weightedValues expr = map (\(e, s) -> (e, fromIntegral s / total)) $ vals where
   vals = sizedValues expr
-  total = fromIntegral . sum $ map snd vals
+  total = fromIntegral . Prelude.sum $ map snd vals
 
 subValue :: MonadSample m => Expr -> m Expr
 subValue e = let (vals, weights) = unzip (weightedValues e) in do

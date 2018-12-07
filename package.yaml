@@ -23,6 +23,7 @@ dependencies:
 - base >= 4.7 && < 5
 - containers
 - first-class-patterns
+- log-domain
 - monad-bayes
 - recursion-schemes
 - transformers

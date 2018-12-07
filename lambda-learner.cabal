@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c5813d5cf0a81ae48334d607d7daa0c3783d5267fe171e20efc20d41fa77b202
+-- hash: 8a1b96af791653a8cf18a32f40022219523c023062baee88893eb06b5a9f89c2
 
 name:           lambda-learner
 version:        0.1.0.0
@@ -28,6 +28,7 @@ source-repository head
 library
   exposed-modules:
       Calculi
+      Inference
       Lib
       Priors
       Rules
@@ -40,6 +41,7 @@ library
       base >=4.7 && <5
     , containers
     , first-class-patterns
+    , log-domain
     , monad-bayes
     , recursion-schemes
     , transformers
@@ -59,6 +61,7 @@ executable lambda-learner-exe
     , containers
     , first-class-patterns
     , lambda-learner
+    , log-domain
     , monad-bayes
     , recursion-schemes
     , transformers
@@ -78,6 +81,7 @@ test-suite lambda-learner-test
     , containers
     , first-class-patterns
     , lambda-learner
+    , log-domain
     , monad-bayes
     , recursion-schemes
     , transformers
