@@ -80,23 +80,24 @@ expr ctx t = do
     _ -> operator ctx t
 
 exprScore :: Map.Map String ExprType -> ExprType -> Expr -> Maybe (Log Double)
-exprScore ctx t = para $ \case
-  Var name -> case Map.lookup name ctx of
+exprScore ctx t v@(Fix (Var name)) =
+  case Map.lookup name ctx of
     Just t' | t == t' -> Just $ 0.5 * 1 / (fromIntegral $ length (compatibles ctx t))
     Nothing -> Nothing
-  op -> (* 0.5) <$> operatorScore ctx t (Fix (fmap fst op))
+exprScore ctx t op = (* 0.5) <$> operatorScore ctx t op
 
 operatorScore :: Map.Map String ExprType -> ExprType -> Expr -> Maybe (Log Double)
-operatorScore ctx (FuncTy a b) = cata $ \case
-  Abs (arg, a') body -> do
-    justBody <- body
-    return $ (stringScore arg) * justBody
-operatorScore ctx t = cata $ \case
-  App func arg -> do
-    func' <- func
-    arg' <- arg
-    return $ 0.5 * func' * arg'
-  Constant c -> Just $ 0.5 * constScore c
+operatorScore ctx (FuncTy a b) (Fix (Abs (arg, a') body)) = do
+  justBody <- exprScore (Map.insert arg a' ctx) b body
+  return $ (stringScore arg) * justBody
+operatorScore ctx t (Fix (App func arg)) = do
+  funcType <- check func ctx
+  argType <- check arg ctx
+  func' <- exprScore ctx funcType func
+  arg' <- exprScore ctx argType arg
+  return $ 0.5 * func' * arg'
+operatorScore ctx t constant@(Fix (Constant c)) = check constant ctx >>= \t' ->
+  if t' == t then Just (0.5 * constScore c) else Nothing
 
 constScore :: ConstantExpr -> Log Double
 constScore (IntConstant i) = 0.5 ** (fromIntegral i)
