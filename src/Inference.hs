@@ -29,5 +29,5 @@ importancePosterior val =
     exprType = fromJust $ check val Map.empty
     priorScore = fromJust . exprScore Map.empty exprType
 
-runTracedPopulation :: MonadSample m => Traced (Population m) a -> m [a]
-runTracedPopulation = liftM (map fst) . runPopulation . resampleSystematic . marginal
+runWeightedPopulation :: MonadSample m => Weighted (Population m) a -> m [a]
+runWeightedPopulation = liftM (map fst) . runPopulation . resampleSystematic . applyWeight
