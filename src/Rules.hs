@@ -136,7 +136,7 @@ type ExpansionRule m = ClauseRule Expr m Expr
 -- Invert applyStepAbs by factoring a value out of an expression, creating an
 -- abstraction.
 applyExpandAbs :: MonadSample m => ExpansionRule m
-applyExpandAbs = Pattern.var ->> \e -> do
+applyExpandAbs = Pattern.var /\ is (\e -> values e /= []) ->> \e -> do
   sub <- subValue e
   subType <- return . fromJust $ check sub Map.empty
   varName <- string
