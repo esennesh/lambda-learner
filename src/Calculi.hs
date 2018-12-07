@@ -104,7 +104,10 @@ values :: Expr -> [Expr]
 values = para $ \case
   Var _ -> []
   App (_, vs1) (_, vs2) -> vs1 ++ vs2
-  Abs (arg, argType) (expr, exprVals) -> (abstr arg argType expr):exprVals
+  Abs (arg, argType) (expr, exprVals) ->
+    case check expr (Map.insert arg argType Map.empty) of
+      Just _ -> (abstr arg argType expr):exprVals
+      Nothing -> exprVals
   Flip (_, vs) -> vs
   Constant c -> [constant c]
 
