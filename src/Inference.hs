@@ -24,8 +24,11 @@ likelihood obsVal e = do
     Nothing -> return e
 
 importancePosterior :: MonadSample m => Expr -> Weighted m Expr
-importancePosterior val | value val =
-  scoreImportance (expand 0.1 val) priorScore >>= likelihood val where
+importancePosterior val | value val = do
+  e <- scoreImportance (expand 0.1 val) priorScore
+  likelihood val e
+  return e
+  where
     exprType = fromJust $ check val Map.empty
     priorScore = fromJust . exprScore Map.empty exprType
 importancePosterior _ = error "Observation is not a value"
