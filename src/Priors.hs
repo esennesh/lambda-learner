@@ -80,14 +80,14 @@ expr ctx t = do
     _ -> operator ctx t
 
 exprScore :: Map.Map String ExprType -> ExprType -> Expr -> Maybe (Log Double)
-exprScore ctx t v@(Fix (Var name)) =
+exprScore ctx t (Fix (Var name)) =
   case Map.lookup name ctx of
     Just t' | t == t' -> Just $ 0.5 * 1 / (fromIntegral $ length (compatibles ctx t))
-    Nothing -> Nothing
+    Nothing -> error ("Unknown variable " ++ name)
 exprScore ctx t op = (* 0.5) <$> operatorScore ctx t op
 
 operatorScore :: Map.Map String ExprType -> ExprType -> Expr -> Maybe (Log Double)
-operatorScore ctx (FuncTy a b) (Fix (Abs (arg, a') body)) = do
+operatorScore ctx (FuncTy a b) (Fix (Abs (arg, a') body)) | a == a' = do
   justBody <- exprScore (Map.insert arg a' ctx) b body
   return $ (stringScore arg) * justBody
 operatorScore ctx t (Fix (App func arg)) = do
@@ -97,7 +97,7 @@ operatorScore ctx t (Fix (App func arg)) = do
   arg' <- exprScore ctx argType arg
   return $ 0.5 * func' * arg'
 operatorScore ctx t constant@(Fix (Constant c)) = check constant ctx >>= \t' ->
-  if t' == t then Just (0.5 * constScore c) else Nothing
+  if t' == t then Just (0.5 * constScore c) else error ("Constant  " ++ show constant ++ " does not share required type " ++ show t)
 
 constScore :: ConstantExpr -> Log Double
 constScore (IntConstant i) = 0.5 ** (fromIntegral i)
