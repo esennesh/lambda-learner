@@ -30,7 +30,9 @@ importancePosterior val | value val = do
   return e
   where
     exprType = fromJust $ check val Map.empty
-    priorScore = fromJust . exprScore Map.empty exprType
+    priorScore e = case exprScore Map.empty exprType e of
+      Just s -> s
+      Nothing -> error $ "Expression of type " ++ (show $ check e Map.empty) ++ " =?= " ++ show exprType ++ " has no score"
 importancePosterior _ = error "Observation is not a value"
 
 runWeightedPopulation :: MonadSample m => Population m a -> m [a]
