@@ -140,8 +140,12 @@ applyExpandAbs = Pattern.var ->> \e -> do
   sub <- subValue e
   subType <- return . fromJust $ check sub Map.empty
   varName <- string
-  let body = replace sub (varExpr varName) e in
-    return (app (abstr varName subType body) sub)
+  -- What if sub is a value in some contexts inside this expression, but not others?
+  let body = replace sub (varExpr varName) e
+      appl = app (abstr varName subType body) sub in
+    case check appl Map.empty of
+      Just _ -> return appl
+      Nothing -> error $ "Subexpression abstraction of " ++ show sub ++ " does not preserve type"
 
 applyExpandLeft :: MonadSample m => ExpansionRule m
 applyExpandLeft = pattern Pattern.var Pattern.var ->> \func arg -> do
@@ -186,7 +190,10 @@ expandRules = [applyExpandAbs, applyExpandLeft, applyExpandRight,
 expandStep :: MonadSample m => Expr -> m Expr
 expandStep e = do
   idx <- uniformD [0..length applicable - 1]
-  match e (applicable !! idx)
+  e' <- match e (applicable !! idx)
+  case check e' Map.empty of
+    Just t' | t == t' -> return e'
+    _ -> error $ "Expanded expression " ++ show e' ++ " has different type from original " ++ show e
   where
     t = fromJust $ check e Map.empty
     applicable = [r | r <- expandRules, isJust (tryMatch e r)]
