@@ -3,6 +3,7 @@ module Priors where
 import Calculi
 import Control.Monad.Bayes.Class
 import Data.Functor.Foldable
+import Data.List
 import qualified Data.Map as Map
 import Data.Maybe
 import qualified Data.Vector as V
@@ -123,7 +124,7 @@ stringScore str = (0.5 ** fraclen str) * (1.0/26.0) ** (fraclen str) where
   fraclen arg = fromIntegral $ length arg
 
 sizedValues :: Expr -> [(Expr, Int)]
-sizedValues = map (\e -> (e, length (unfix e) + 1)) . values
+sizedValues = map (\e -> (e, length (unfix e) + 1)) . nub . values
 
 weightedValues :: Expr -> [(Expr, Double)]
 weightedValues expr = map (\(e, s) -> (e, fromIntegral s / total)) $ vals where
