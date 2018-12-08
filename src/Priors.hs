@@ -52,14 +52,18 @@ operator ctx (FuncTy a b) = do
   body <- expr (Map.insert arg a ctx) b
   return . Fix $ Abs (arg, a) body
 operator ctx t = do
-  generate_constant <- bernoulli 0.5
-  if generate_constant then
-    constExpr ctx t
-  else do
-    ta <- exprType
-    a <- expr ctx ta
-    func <- operator ctx (FuncTy ta t)
-    return . Fix $ App func a
+  let numCases = if t == BoolTy then 3 else 2
+  generate_case <- uniformD [0..numCases-1]
+  case generate_case of
+    0 -> constExpr ctx t
+    1 -> do
+      ta <- exprType
+      a <- expr ctx ta
+      func <- operator ctx (FuncTy ta t)
+      return . Fix $ App func a
+    2 -> do
+      prob <- uniform 0.0 1.0
+      return . Fix $ Flip (Fix $ Constant (DoubleConstant prob))
 
 compatibles :: Map.Map String ExprType -> ExprType -> Map.Map String ExprType
 compatibles ctx t = Map.filter (== t) ctx
@@ -95,9 +99,19 @@ operatorScore ctx t (Fix (App func arg)) = do
   argType <- check arg ctx
   func' <- exprScore ctx funcType func
   arg' <- exprScore ctx argType arg
-  return $ 0.5 * func' * arg'
+  return $ (caseProb t) * func' * arg'
+  where
+    caseProb BoolTy = 1.0/3.0
+    caseProb _ = 0.5
 operatorScore ctx t constant@(Fix (Constant c)) = check constant ctx >>= \t' ->
-  if t' == t then Just (0.5 * constScore c) else error ("Constant  " ++ show constant ++ " does not share required type " ++ show t)
+  if t' == t then
+    Just (caseProb t * constScore c)
+  else
+    error ("Constant  " ++ show constant ++ " does not share required type " ++ show t)
+  where
+    caseProb BoolTy = 1.0/3.0
+    caseProb _ = 0.5
+operatorScore _ _ _ = Nothing
 
 constScore :: ConstantExpr -> Log Double
 constScore (IntConstant i) = 0.5 ** (fromIntegral i)
