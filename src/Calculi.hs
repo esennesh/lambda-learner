@@ -119,5 +119,8 @@ values = para $ \e -> let expr = Fix $ fmap fst e in
     vals (Flip vs) = vs
     vals _ = []
 
+subValues :: Expr -> [Expr]
+subValues e = filter (/= e) $ values e
+
 runExpr :: MonadSample m => (Expr -> MaybeT m Expr) -> Expr -> m (Maybe Expr)
 runExpr evaluator = runMaybeT . evaluator
