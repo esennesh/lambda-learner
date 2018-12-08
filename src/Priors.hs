@@ -123,15 +123,15 @@ constScore (DoubleConstant d) = normalPdf 0.0 1.0 d
 stringScore str = (0.5 ** fraclen str) * (1.0/26.0) ** (fraclen str) where
   fraclen arg = fromIntegral $ length arg
 
-sizedValues :: Expr -> [(Expr, Int)]
-sizedValues = map (\e -> (e, length (unfix e) + 1)) . nub . values
+sizedSubValues :: Expr -> [(Expr, Int)]
+sizedSubValues = map (\e -> (e, length (unfix e) + 1)) . nub . subValues
 
-weightedValues :: Expr -> [(Expr, Double)]
-weightedValues expr = map (\(e, s) -> (e, fromIntegral s / total)) $ vals where
-  vals = sizedValues expr
+weightedSubValues :: Expr -> [(Expr, Double)]
+weightedSubValues expr = map (\(e, s) -> (e, fromIntegral s / total)) $ vals where
+  vals = sizedSubValues expr
   total = fromIntegral . Prelude.sum $ map snd vals
 
 subValue :: MonadSample m => Expr -> m Expr
-subValue e = let (vals, weights) = unzip (weightedValues e) in do
+subValue e = let (vals, weights) = unzip (weightedSubValues e) in do
   idx <- categorical (V.fromList weights)
   return (vals !! idx)
