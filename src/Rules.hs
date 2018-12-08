@@ -188,15 +188,18 @@ expandRules = [applyExpandAbs, applyExpandLeft, applyExpandRight,
                flipExpandSample, flipExpandProb]
 
 expandStep :: MonadSample m => Expr -> m Expr
-expandStep e = do
-  idx <- uniformD [0..length applicable - 1]
-  e' <- match e (applicable !! idx)
-  case check e' Map.empty of
-    Just t' | t == t' -> return e'
-    _ -> error $ "Expanded expression " ++ show e' ++ " has different type from original " ++ show e
+expandStep e = if numApplicable > 0 then do
+    idx <- uniformD [0..numApplicable-1]
+    e' <- match e (applicable !! idx)
+    case check e' Map.empty of
+      Just t' | t == t' -> return e'
+      _ -> error $ "Expanded expression " ++ show e' ++ " has different type from original " ++ show e
+  else
+    return e
   where
     t = fromJust $ check e Map.empty
     applicable = [r | r <- expandRules, isJust (tryMatch e r)]
+    numApplicable = length applicable
 
 expandSteps :: MonadSample m => Int -> Expr -> m Expr
 expandSteps 0 e = return e
