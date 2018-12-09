@@ -92,6 +92,13 @@ check (Fix (Constant constant)) _ = Just $ case constant of
   BoolConstant _ -> BoolTy
   StrConstant _ -> StringTy
   DoubleConstant _ -> DoubleTy
+check (Fix (BinOp op l r)) context = do
+  tl <- check l context
+  tr <- check r context
+  case (op, tl, tr) of
+    (Arith _, DoubleTy, DoubleTy) -> return DoubleTy
+    (Arith _, IntTy, IntTy) -> return IntTy
+    _ -> Nothing
 
 subst :: String -> Expr -> Expr -> Expr
 subst name val = para $ \case
@@ -103,6 +110,12 @@ subst name val = para $ \case
 replace :: Expr -> Expr -> Expr -> Expr
 replace sub replacement = cata $ \e ->
   if e == unfix sub then replacement else Fix e
+
+applyBinOp :: BinaryOperator -> Expr -> Expr -> Expr
+applyBinOp (Arith a) (Fix (Constant (IntConstant l))) (Fix (Constant (IntConstant r))) =
+  Fix . Constant . IntConstant $ (intArithmetic a) l r
+applyBinOp (Arith a) (Fix (Constant (DoubleConstant l))) (Fix (Constant (DoubleConstant r))) =
+  Fix . Constant . DoubleConstant $ (fracArithmetic a) l r
 
 eval :: MonadSample m => Expr -> MaybeT m Expr
 eval = para $ \case
@@ -117,6 +130,10 @@ eval = para $ \case
     coin <- bernoulli weight
     return . Fix $ Constant (BoolConstant coin)
   Constant c -> return . Fix $ (Constant c)
+  BinOp op (_, le) (_, re) -> do
+    l <- le
+    r <- re
+    return $ applyBinOp op l r
 
 contextualValue :: Map.Map String ExprType -> Expr -> Bool
 contextualValue ctx (Fix (Abs (a, ta) b)) =
