@@ -2,8 +2,10 @@ module Rules where
 
 import Calculi
 import Control.Applicative
+import Control.Exception
 import Control.Monad
 import Control.Monad.Bayes.Class
+import Control.Monad.Bayes.Sampler
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Data.Foldable
@@ -136,12 +138,16 @@ type ExpansionRule m = ClauseRule Expr m Expr
 -- Invert applyStepAbs by factoring a value out of an expression, creating an
 -- abstraction.
 applyExpandAbs :: MonadSample m => ExpansionRule m
-applyExpandAbs = Pattern.var ->> \e -> do
+applyExpandAbs = Pattern.var /\ is (\e -> subValues e /= []) ->> \e -> do
   sub <- subValue e
   subType <- return . fromJust $ check sub Map.empty
   varName <- string
-  let body = replace sub (varExpr varName) e in
-    return (app (abstr varName subType body) sub)
+  -- What if sub is a value in some contexts inside this expression, but not others?
+  let body = replace sub (varExpr varName) e
+      appl = app (abstr varName subType body) sub in
+    case check appl Map.empty of
+      Just _ -> return appl
+      Nothing -> error $ "Subexpression abstraction of " ++ show sub ++ " does not preserve type"
 
 applyExpandLeft :: MonadSample m => ExpansionRule m
 applyExpandLeft = pattern Pattern.var Pattern.var ->> \func arg -> do
@@ -149,7 +155,7 @@ applyExpandLeft = pattern Pattern.var Pattern.var ->> \func arg -> do
   return (app func' arg)
   where
     pattern = mk2 $ \e -> case unfix e of
-      App f a -> Just (f, a)
+      App f a | expandable f -> Just (f, a)
       _ -> Nothing
 
 applyExpandRight :: MonadSample m => ExpansionRule m
@@ -158,7 +164,7 @@ applyExpandRight = pattern Pattern.var Pattern.var ->> \func arg -> do
   return (app func arg')
   where
     pattern = mk2 $ \e -> case unfix e of
-      App f a -> Just (f, a)
+      App f a | expandable a -> Just (f, a)
       _ -> Nothing
 
 flipExpandSample :: MonadSample m => ExpansionRule m
@@ -176,20 +182,31 @@ flipExpandProb = pattern Pattern.var ->> \prob -> do
   return (Calculi.flip prob')
   where
     pattern = mk1 $ \e -> case unfix e of
-      Flip prob -> Just prob
+      Flip prob | expandable prob -> Just prob
       _ -> Nothing
 
 expandRules :: MonadSample m => [ExpansionRule m]
 expandRules = [applyExpandAbs, applyExpandLeft, applyExpandRight,
                flipExpandSample, flipExpandProb]
 
+expandable :: Expr -> Bool
+expandable e = not $ null [r | r <- expandRules', isJust (tryMatch e r)] where
+  expandRules' = (expandRules :: [ExpansionRule SamplerIO])
+
+expandableValues :: Expr -> [Expr]
+expandableValues = filter expandable . values
+
 expandStep :: MonadSample m => Expr -> m Expr
-expandStep e = do
-  idx <- uniformD [0..length applicable - 1]
-  match e (applicable !! idx)
+expandStep e = if numApplicable < 1 then return e else do
+    idx <- uniformD [0..numApplicable-1]
+    e' <- match e (applicable !! idx)
+    case check e' Map.empty of
+      Just t' | t == t' -> return e'
+      _ -> error $ "Expanded expression " ++ show e' ++ " has different type from original " ++ show e
   where
     t = fromJust $ check e Map.empty
     applicable = [r | r <- expandRules, isJust (tryMatch e r)]
+    numApplicable = length applicable
 
 expandSteps :: MonadSample m => Int -> Expr -> m Expr
 expandSteps 0 e = return e
