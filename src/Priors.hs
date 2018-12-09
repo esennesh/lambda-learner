@@ -112,6 +112,9 @@ operatorScore ctx t constant@(Fix (Constant c)) = check constant ctx >>= \t' ->
   where
     caseProb BoolTy = 1.0/3.0
     caseProb _ = 0.5
+operatorScore ctx BoolTy (Fix (Flip weight)) = do
+  weightScore <- exprScore ctx DoubleTy weight
+  return $ 1.0/3.0 * weightScore
 operatorScore _ _ _ = Nothing
 
 constScore :: ConstantExpr -> Log Double
