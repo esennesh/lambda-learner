@@ -197,7 +197,7 @@ expandableValues :: Expr -> [Expr]
 expandableValues = filter expandable . values
 
 expandStep :: MonadSample m => Expr -> m Expr
-expandStep e = assert (numApplicable >= 1) $ do
+expandStep e = if numApplicable < 1 then return e else do
     idx <- uniformD [0..numApplicable-1]
     e' <- match e (applicable !! idx)
     case check e' Map.empty of
