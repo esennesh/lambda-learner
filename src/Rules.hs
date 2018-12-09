@@ -59,6 +59,17 @@ flipTyping ctx = Rule $ \e -> case unfix e of
     return BoolTy
   _ -> empty
 
+binOpTyping :: TypingRule Identity
+binOpTyping ctx = Rule $ \e -> case unfix e of
+  BinOp op l r -> do
+    tl <- rulesCheck ctx l
+    tr <- rulesCheck ctx r
+    case (op, tl, tr) of
+      (Arith _, DoubleTy, DoubleTy) -> return DoubleTy
+      (Arith _, IntTy, IntTy) -> return IntTy
+      _ -> empty
+  _ -> empty
+
 absTyping :: TypingRule Identity
 absTyping ctx = Rule $ \e -> case unfix e of
   Abs (name, argType) body -> do
@@ -75,7 +86,8 @@ constTyping ctx = Rule $ \e -> case unfix e of
     constType (DoubleConstant _) = DoubleTy
   _ -> empty
 
-typingRules = [applicationTyping, varTyping, flipTyping, absTyping, constTyping]
+typingRules = [applicationTyping, varTyping, flipTyping, absTyping, constTyping,
+               binOpTyping]
 
 rulesCheck :: Context ExprType -> Expr -> MaybeT Identity ExprType
 rulesCheck ctx = step $ map (\rule -> rule ctx) typingRules
@@ -100,6 +112,26 @@ applyStepRight = Rule $ \e -> case unfix e of
     return . Fix $ App func arg'
   _ -> empty
 
+binOpStepLeft :: MonadSample m => RedexRule m
+binOpStepLeft = Rule $ \e -> case unfix e of
+  BinOp op l r -> do
+    l' <- rulesStep l
+    return . Fix $ BinOp op l' r
+  _ -> empty
+
+binOpStepRight :: MonadSample m => RedexRule m
+binOpStepRight = Rule $ \e -> case unfix e of
+  BinOp op l r | value l -> do
+    r' <- rulesStep r
+    return . Fix $ BinOp op l r'
+  _ -> empty
+
+binOpStepOp :: MonadSample m => RedexRule m
+binOpStepOp = Rule $ \e -> case unfix e of
+  BinOp op l r | value l && value r -> do
+    return $ applyBinOp op l r
+  _ -> empty
+
 flipStepSample :: MonadSample m => RedexRule m
 flipStepSample = Rule $ \e -> case unfix e of
   Flip (Fix (Constant (DoubleConstant p))) -> do
@@ -115,8 +147,8 @@ flipStepProb = Rule $ \e -> case unfix e of
   _ -> empty
 
 smallStepRules :: MonadSample m => [RedexRule m]
-smallStepRules = [applyStepAbs, applyStepLeft, applyStepRight,
-                  flipStepSample, flipStepProb]
+smallStepRules = [applyStepAbs, applyStepLeft, applyStepRight, flipStepSample,
+                  flipStepProb, binOpStepLeft, binOpStepRight, binOpStepOp]
 
 rulesStep :: MonadSample m => Expr -> MaybeT m Expr
 rulesStep = step smallStepRules
