@@ -121,7 +121,7 @@ constScore :: ConstantExpr -> Log Double
 constScore (IntConstant i) = 0.5 ** (fromIntegral i)
 constScore (BoolConstant _) = 0.5
 constScore (StrConstant str) = stringScore str
-constScore (DoubleConstant d) = normalPdf 0.0 1.0 d
+constScore (DoubleConstant d) = Exp $ log d
 
 stringScore str = (0.5 ** fraclen str) * (1.0/26.0) ** (fraclen str) where
   fraclen arg = fromIntegral $ length arg
