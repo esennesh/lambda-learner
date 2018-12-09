@@ -25,6 +25,7 @@ dependencies:
 - first-class-patterns
 - log-domain
 - monad-bayes
+- Numbers
 - recursion-schemes
 - transformers
 - vector

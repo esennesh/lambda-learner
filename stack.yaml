@@ -40,6 +40,7 @@ packages:
 extra-deps:
 - git: git@github.com:esennesh/monad-bayes.git
   commit: e33e7fcf2e54ec145663cd3d81f3d3876669cba6
+- Numbers-0.2.1
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
