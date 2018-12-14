@@ -72,28 +72,39 @@ arithmeticBinOp ctx t i | t == IntTy || t == DoubleTy = do
   right <- sizedExpr ctx t (i-1)
   return . Fix $ BinOp (Arith op) left right
 
+conditional :: MonadSample m => Map.Map String ExprType -> ExprType -> Int ->
+               m Expr
+conditional ctx t i =  do
+  ifCond <- sizedExpr ctx BoolTy (i-1)
+  thenCase <- sizedExpr ctx t (i-1)
+  elseCase <- sizedExpr ctx t (i-1)
+  return . Fix $ Cond ifCond thenCase elseCase
+
 operator :: MonadSample m => Map.Map String ExprType -> ExprType -> Int ->
             m Expr
 operator ctx (FuncTy a b) i = abstraction ctx a b i
 operator ctx t i | t == IntTy || t == DoubleTy = do
-  generate_case <- uniformD [0..2]
+  generate_case <- uniformD [0..3]
   case generate_case of
     0 -> constExpr ctx t
     1 -> application ctx t i
     2 -> arithmeticBinOp ctx t i
+    3 -> conditional ctx t i
 operator ctx BoolTy i = do
-  generate_case <- uniformD [0..2]
+  generate_case <- uniformD [0..3]
   case generate_case of
     0 -> constExpr ctx BoolTy
     1 -> application ctx BoolTy i
     2 -> do
       prob <- uniform 0.0 1.0
       return . Fix $ Flip (Fix $ Constant (DoubleConstant prob))
+    3 -> conditional ctx BoolTy i
 operator ctx StringTy i = do
-  generate_case <- uniformD [0..1]
+  generate_case <- uniformD [0..2]
   case generate_case of
     0 -> constExpr ctx StringTy
     1 -> application ctx StringTy i
+    2 -> conditional ctx StringTy i
 
 compatibles :: Map.Map String ExprType -> ExprType -> Map.Map String ExprType
 compatibles ctx t = Map.filter (== t) ctx
@@ -140,7 +151,7 @@ operatorScore ctx t (Fix (App func arg)) = do
     caseProb DoubleTy = 1/3
     caseProb IntTy = 1/3
     caseProb BoolTy = 1.0/3.0
-    caseProb _ = 0.5
+    caseProb _ = 1/3
 operatorScore ctx t constant@(Fix (Constant c)) = check constant ctx >>= \t' ->
   if t' == t then
     Just (caseProb t * constScore c)
@@ -150,7 +161,7 @@ operatorScore ctx t constant@(Fix (Constant c)) = check constant ctx >>= \t' ->
     caseProb DoubleTy = 1/3
     caseProb IntTy = 1/3
     caseProb BoolTy = 1.0/3.0
-    caseProb _ = 0.5
+    caseProb _ = 1/3
 operatorScore ctx BoolTy (Fix (Flip weight)) = do
   weightScore <- exprScore ctx DoubleTy weight
   return $ 1.0/3.0 * weightScore
@@ -162,6 +173,11 @@ operatorScore ctx DoubleTy (Fix (BinOp (Arith _) left right)) = do
   leftScore <- exprScore ctx DoubleTy left
   rightScore <- exprScore ctx DoubleTy right
   return $ 1/3 * 1/4 * leftScore * rightScore
+operatorScore ctx t (Fix (Cond ifCond thenCase elseCase)) = do
+  iScore <- exprScore ctx BoolTy ifCond
+  tScore <- exprScore ctx t thenCase
+  eScore <- exprScore ctx t elseCase
+  return $ 1/4 * iScore * tScore * eScore
 operatorScore _ _ _ = Nothing
 
 constScore :: ConstantExpr -> Log Double
