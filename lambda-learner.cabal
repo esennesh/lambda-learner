@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8a1b96af791653a8cf18a32f40022219523c023062baee88893eb06b5a9f89c2
+-- hash: 3ae30d88ba410612f8c7dd55ec33770f796d60597e2ecb39f231e36fbe8add99
 
 name:           lambda-learner
 version:        0.1.0.0
@@ -38,7 +38,8 @@ library
       src
   default-extensions: LambdaCase DeriveFunctor DeriveFoldable
   build-depends:
-      base >=4.7 && <5
+      Numbers
+    , base >=4.7 && <5
     , containers
     , first-class-patterns
     , log-domain
@@ -55,9 +56,10 @@ executable lambda-learner-exe
   hs-source-dirs:
       app
   default-extensions: LambdaCase DeriveFunctor
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -fbreak-on-exception
   build-depends:
-      base >=4.7 && <5
+      Numbers
+    , base >=4.7 && <5
     , containers
     , first-class-patterns
     , lambda-learner
@@ -77,7 +79,8 @@ test-suite lambda-learner-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      Numbers
+    , base >=4.7 && <5
     , containers
     , first-class-patterns
     , lambda-learner

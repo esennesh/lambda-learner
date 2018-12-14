@@ -25,6 +25,7 @@ dependencies:
 - first-class-patterns
 - log-domain
 - monad-bayes
+- Numbers
 - recursion-schemes
 - transformers
 - vector
@@ -44,6 +45,7 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -fbreak-on-exception
     default-extensions:
     - LambdaCase
     - DeriveFunctor

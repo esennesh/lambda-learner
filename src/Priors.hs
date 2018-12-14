@@ -53,7 +53,7 @@ operator ctx (FuncTy a b) = do
   body <- expr (Map.insert arg a ctx) b
   return . Fix $ Abs (arg, a) body
 operator ctx t = do
-  let numCases = if t == BoolTy then 3 else 2
+  let numCases = if t == BoolTy || t == IntTy || t == DoubleTy then 3 else 2
   generate_case <- uniformD [0..numCases-1]
   case generate_case of
     0 -> constExpr ctx t
@@ -62,9 +62,15 @@ operator ctx t = do
       a <- expr ctx ta
       func <- operator ctx (FuncTy ta t)
       return . Fix $ App func a
-    2 -> do
-      prob <- uniform 0.0 1.0
-      return . Fix $ Flip (Fix $ Constant (DoubleConstant prob))
+    2 -> case t of
+      BoolTy -> do
+        prob <- uniform 0.0 1.0
+        return . Fix $ Flip (Fix $ Constant (DoubleConstant prob))
+      _ | t == IntTy || t == DoubleTy -> do
+        op <- uniformD [Plus, Minus, Times, Divide]
+        left <- expr ctx t
+        right <- expr ctx t
+        return . Fix $ BinOp (Arith op) left right
 
 compatibles :: Map.Map String ExprType -> ExprType -> Map.Map String ExprType
 compatibles ctx t = Map.filter (== t) ctx
@@ -102,6 +108,8 @@ operatorScore ctx t (Fix (App func arg)) = do
   arg' <- exprScore ctx argType arg
   return $ (caseProb t) * func' * arg'
   where
+    caseProb DoubleTy = 1/3
+    caseProb IntTy = 1/3
     caseProb BoolTy = 1.0/3.0
     caseProb _ = 0.5
 operatorScore ctx t constant@(Fix (Constant c)) = check constant ctx >>= \t' ->
@@ -110,11 +118,21 @@ operatorScore ctx t constant@(Fix (Constant c)) = check constant ctx >>= \t' ->
   else
     error ("Constant  " ++ show constant ++ " does not share required type " ++ show t)
   where
+    caseProb DoubleTy = 1/3
+    caseProb IntTy = 1/3
     caseProb BoolTy = 1.0/3.0
     caseProb _ = 0.5
 operatorScore ctx BoolTy (Fix (Flip weight)) = do
   weightScore <- exprScore ctx DoubleTy weight
   return $ 1.0/3.0 * weightScore
+operatorScore ctx IntTy (Fix (BinOp (Arith _) left right)) = do
+  leftScore <- exprScore ctx IntTy left
+  rightScore <- exprScore ctx IntTy right
+  return $ 1/3 * 1/4 * leftScore * rightScore
+operatorScore ctx DoubleTy (Fix (BinOp (Arith _) left right)) = do
+  leftScore <- exprScore ctx DoubleTy left
+  rightScore <- exprScore ctx DoubleTy right
+  return $ 1/3 * 1/4 * leftScore * rightScore
 operatorScore _ _ _ = Nothing
 
 constScore :: ConstantExpr -> Log Double

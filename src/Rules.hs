@@ -13,6 +13,7 @@ import Data.Functor.Foldable
 import Data.Functor.Identity
 import qualified Data.Map as Map
 import Data.Maybe
+import Data.Numbers
 import Data.Pattern as Pattern
 import Priors
 
@@ -59,6 +60,17 @@ flipTyping ctx = Rule $ \e -> case unfix e of
     return BoolTy
   _ -> empty
 
+binOpTyping :: TypingRule Identity
+binOpTyping ctx = Rule $ \e -> case unfix e of
+  BinOp op l r -> do
+    tl <- rulesCheck ctx l
+    tr <- rulesCheck ctx r
+    case (op, tl, tr) of
+      (Arith _, DoubleTy, DoubleTy) -> return DoubleTy
+      (Arith _, IntTy, IntTy) -> return IntTy
+      _ -> empty
+  _ -> empty
+
 absTyping :: TypingRule Identity
 absTyping ctx = Rule $ \e -> case unfix e of
   Abs (name, argType) body -> do
@@ -75,7 +87,8 @@ constTyping ctx = Rule $ \e -> case unfix e of
     constType (DoubleConstant _) = DoubleTy
   _ -> empty
 
-typingRules = [applicationTyping, varTyping, flipTyping, absTyping, constTyping]
+typingRules = [applicationTyping, varTyping, flipTyping, absTyping, constTyping,
+               binOpTyping]
 
 rulesCheck :: Context ExprType -> Expr -> MaybeT Identity ExprType
 rulesCheck ctx = step $ map (\rule -> rule ctx) typingRules
@@ -100,6 +113,26 @@ applyStepRight = Rule $ \e -> case unfix e of
     return . Fix $ App func arg'
   _ -> empty
 
+binOpStepLeft :: MonadSample m => RedexRule m
+binOpStepLeft = Rule $ \e -> case unfix e of
+  BinOp op l r -> do
+    l' <- rulesStep l
+    return . Fix $ BinOp op l' r
+  _ -> empty
+
+binOpStepRight :: MonadSample m => RedexRule m
+binOpStepRight = Rule $ \e -> case unfix e of
+  BinOp op l r | value l -> do
+    r' <- rulesStep r
+    return . Fix $ BinOp op l r'
+  _ -> empty
+
+binOpStepOp :: MonadSample m => RedexRule m
+binOpStepOp = Rule $ \e -> case unfix e of
+  BinOp op l r | value l && value r -> do
+    return $ applyBinOp op l r
+  _ -> empty
+
 flipStepSample :: MonadSample m => RedexRule m
 flipStepSample = Rule $ \e -> case unfix e of
   Flip (Fix (Constant (DoubleConstant p))) -> do
@@ -115,8 +148,8 @@ flipStepProb = Rule $ \e -> case unfix e of
   _ -> empty
 
 smallStepRules :: MonadSample m => [RedexRule m]
-smallStepRules = [applyStepAbs, applyStepLeft, applyStepRight,
-                  flipStepSample, flipStepProb]
+smallStepRules = [applyStepAbs, applyStepLeft, applyStepRight, flipStepSample,
+                  flipStepProb, binOpStepLeft, binOpStepRight, binOpStepOp]
 
 rulesStep :: MonadSample m => Expr -> MaybeT m Expr
 rulesStep = step smallStepRules
@@ -185,9 +218,67 @@ flipExpandProb = pattern Pattern.var ->> \prob -> do
       Flip prob | expandable prob -> Just prob
       _ -> Nothing
 
+expandOp :: Fractional a => ArithmeticOperator -> a -> a -> a
+expandOp Plus i j = i - j
+expandOp Minus i j = j - i
+expandOp Times i j = i / j
+expandOp Divide i j = j / i
+
+binOpExpandOp :: MonadSample m => ExpansionRule m
+binOpExpandOp = pattern Pattern.var ->> \num -> case num of
+  Left i -> do
+    op <- if i /= 0 then uniformD [Plus, Minus, Times, Divide] else
+          uniformD [Plus, Minus]
+    case op of
+      Plus -> do
+        j <- geometric 0.5
+        let k = i - j
+        return $ binOp (Arith op) (Fix $ Constant (IntConstant j)) (Fix $ Constant (IntConstant k))
+      Minus -> do
+        j <- geometric 0.5
+        let k = j - i
+        return $ binOp (Arith op) (Fix $ Constant (IntConstant j)) (Fix $ Constant (IntConstant k))
+      Times | i /= 0 -> do
+        j <- fromIntegral <$> (uniformD $ factors (fromIntegral i))
+        let k = quot i j
+        return $ binOp (Arith op) (Fix $ Constant (IntConstant j)) (Fix $ Constant (IntConstant k))
+      Divide | i /= 0 -> do
+        k <- (+ 1) <$> geometric 0.5
+        let j = k * i
+        return $ binOp (Arith op) (Fix $ Constant (IntConstant j)) (Fix $ Constant (IntConstant k))
+  Right r -> do
+    op <- uniformD [Plus, Minus, Times, Divide]
+    j <- normal 0.0 1.0
+    let k = expandOp op r j
+    return $ binOp (Arith op) (Fix $ Constant (DoubleConstant j)) (Fix $ Constant (DoubleConstant k))
+  where
+    pattern = mk1 $ \e -> case unfix e of
+      Constant (IntConstant i) -> Just (Left i)
+      Constant (DoubleConstant r) -> Just (Right r)
+      _ -> Nothing
+
+binOpExpandLeft :: MonadSample m => ExpansionRule m
+binOpExpandLeft = pattern Pattern.var Pattern.var Pattern.var ->> \op l r -> do
+  l' <- expandStep l
+  return (binOp op l' r)
+  where
+    pattern = mk3 $ \e -> case unfix e of
+      BinOp op l r | expandable l -> Just (op, l, r)
+      _ -> Nothing
+
+binOpExpandRight :: MonadSample m => ExpansionRule m
+binOpExpandRight = pattern Pattern.var Pattern.var Pattern.var ->> \op l r -> do
+  r' <- expandStep r
+  return (binOp op l r')
+  where
+    pattern = mk3 $ \e -> case unfix e of
+      BinOp op l r | expandable r -> Just (op, l, r)
+      _ -> Nothing
+
 expandRules :: MonadSample m => [ExpansionRule m]
-expandRules = [applyExpandAbs, applyExpandLeft, applyExpandRight,
-               flipExpandSample, flipExpandProb]
+expandRules = [applyExpandAbs, applyExpandLeft, applyExpandRight, binOpExpandOp,
+               binOpExpandLeft, binOpExpandRight, flipExpandSample,
+               flipExpandProb]
 
 expandable :: Expr -> Bool
 expandable e = not $ null [r | r <- expandRules', isJust (tryMatch e r)] where
