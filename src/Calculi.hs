@@ -37,7 +37,7 @@ fracArithmetic Times = (*)
 fracArithmetic Divide = (/)
 
 data ExprF f = Var String | App f f | Abs (String, ExprType) f | Flip f
-             | Constant ConstantExpr | BinOp BinaryOperator f f
+             | Constant ConstantExpr | BinOp BinaryOperator f f | Cond f f f
              deriving (Eq, Foldable, Functor, Show)
 type PartialExpr = Fix (Compose Maybe ExprF)
 type Expr = Fix ExprF
@@ -59,6 +59,8 @@ instance Show1 ExprF where
   liftShowsPrec sp _ d (Flip f) = showsUnaryWith sp "Flip" d f
   liftShowsPrec _ _ d (Constant c) = showsUnaryWith showsPrec "Constant" d c
   liftShowsPrec sp _ d (BinOp op l r) = showsBinaryWith sp sp (show op) d l r
+  liftShowsPrec sp _ d (Cond i t e) =
+    showString "Cond " . sp d i . showChar ' ' . sp d t . showChar ' ' . sp d e
 
 varExpr :: String -> Expr
 varExpr = Fix . Var
@@ -77,6 +79,9 @@ constant = Fix . Constant
 
 binOp :: BinaryOperator -> Expr -> Expr -> Expr
 binOp op l r = Fix $ BinOp op l r
+
+ifThenElse :: Expr -> Expr -> Expr -> Expr
+ifThenElse i t e = Fix $ Cond i t e
 
 check :: Expr -> Map.Map String ExprType -> Maybe ExprType
 check (Fix (App func arg)) context = check func context >>= \case
@@ -103,6 +108,14 @@ check (Fix (BinOp op l r)) context = do
     (Arith _, DoubleTy, DoubleTy) -> return DoubleTy
     (Arith _, IntTy, IntTy) -> return IntTy
     _ -> Nothing
+check (Fix (Cond i t e)) ctx = do
+  BoolTy <- check i ctx
+  tt <- check t ctx
+  te <- check e ctx
+  if tt == te then
+    return te
+  else
+    Nothing
 
 subst :: String -> Expr -> Expr -> Expr
 subst name val = para $ \case
@@ -138,6 +151,9 @@ eval = para $ \case
     l <- le
     r <- re
     return $ applyBinOp op l r
+  Cond (_, i) (_, t) (_, e) -> do
+    Fix (Constant (BoolConstant condition)) <- i
+    if condition then t else e
 
 contextualValue :: Map.Map String ExprType -> Expr -> Bool
 contextualValue ctx (Fix (Abs (a, ta) b)) =
