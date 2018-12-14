@@ -23,11 +23,12 @@ exprType = do
 
 constant :: MonadSample m => m ConstantExpr
 constant = do
-  constructor <- uniformD [1..3]
+  constructor <- uniformD [1..4]
   case constructor of
     1 -> IntConstant <$> geometric 0.5
     2 -> BoolConstant <$> bernoulli 0.5
     3 -> StrConstant <$> string
+    4 -> DoubleConstant <$> normal 0.0 1.0
 
 char :: MonadSample m => m Char
 char = uniformD ['a'..'z']
