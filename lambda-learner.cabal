@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 40afe66db1b3bfeffe58b3f0c1dbe8f9551aae5fe31f2e5c4e9704f3f4977604
+-- hash: 3ae30d88ba410612f8c7dd55ec33770f796d60597e2ecb39f231e36fbe8add99
 
 name:           lambda-learner
 version:        0.1.0.0
@@ -56,7 +56,7 @@ executable lambda-learner-exe
   hs-source-dirs:
       app
   default-extensions: LambdaCase DeriveFunctor
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -fbreak-on-exception
   build-depends:
       Numbers
     , base >=4.7 && <5
