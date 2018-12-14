@@ -296,10 +296,31 @@ binOpExpandRight = pattern Pattern.var Pattern.var Pattern.var ->> \op l r -> do
       BinOp op l r | expandable r -> Just (op, l, r)
       _ -> Nothing
 
+condExpandCond :: MonadSample m => ExpansionRule m
+condExpandCond = pattern Pattern.var Pattern.var Pattern.var ->> \i t e -> do
+  i' <- expandStep i
+  return (ifThenElse i' t e)
+  where
+    pattern = mk3 $ \e -> case unfix e of
+      Cond i t e | expandable i -> Just (i, t, e)
+      _ -> Nothing
+
+condExpandResolve :: MonadSample m => ExpansionRule m
+condExpandResolve = Pattern.var ->> \e -> do
+  let t = fromJust $ check e Map.empty
+  weight <- uniform 0 1
+  decision <- bernoulli weight
+  alternative <- sizedExpr Map.empty t (length (unfix e))
+  let ifCond = Calculi.constant (BoolConstant decision)
+  if decision then
+    return (ifThenElse ifCond e alternative)
+  else
+    return (ifThenElse ifCond alternative e)
+
 expandRules :: MonadSample m => [ExpansionRule m]
 expandRules = [applyExpandAbs, applyExpandLeft, applyExpandRight, binOpExpandOp,
                binOpExpandLeft, binOpExpandRight, flipExpandSample,
-               flipExpandProb]
+               flipExpandProb, condExpandCond, condExpandResolve]
 
 expandable :: Expr -> Bool
 expandable e = not $ null [r | r <- expandRules', isJust (tryMatch e r)] where
