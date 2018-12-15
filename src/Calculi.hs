@@ -14,6 +14,10 @@ import Data.Maybe
 data ExprType = IntTy | BoolTy | StringTy | DoubleTy
               | FuncTy ExprType ExprType deriving (Eq, Show)
 
+arrowType :: ExprType -> Bool
+arrowType (FuncTy _ _) = True
+arrowType _ = False
+
 data ConstantExpr = IntConstant Int | BoolConstant Bool | StrConstant String
                   | DoubleConstant Double deriving (Eq, Show)
 
