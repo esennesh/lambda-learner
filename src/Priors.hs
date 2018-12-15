@@ -48,59 +48,61 @@ constExpr _ BoolTy = (Fix . Constant . BoolConstant) <$> bernoulli 0.5
 constExpr _ StringTy = (Fix . Constant . StrConstant) <$> string
 constExpr _ DoubleTy = (Fix . Constant . DoubleConstant) <$> uniform 0.0 1.0
 
-operator :: MonadSample m => Map.Map String ExprType -> ExprType -> m Expr
-operator ctx (FuncTy a b) = do
+operator :: MonadSample m => Map.Map String ExprType -> ExprType -> Int ->
+            m Expr
+operator ctx t 0 | not (arrowType t) = constExpr ctx t
+operator ctx (FuncTy a b) i = do
   arg <- string
-  body <- expr (Map.insert arg a ctx) b
+  body <- sizedExpr (Map.insert arg a ctx) b (i-1)
   return . Fix $ Abs (arg, a) body
-operator ctx IntTy = do
+operator ctx IntTy i = do
   generate_case <- uniformD [0..2]
   case generate_case of
     0 -> constExpr ctx IntTy
     1 -> do
       ta <- exprType
-      a <- expr ctx ta
-      func <- expr ctx (FuncTy ta IntTy)
+      a <- sizedExpr ctx ta (i-1)
+      func <- sizedExpr ctx (FuncTy ta IntTy) (i-1)
       return . Fix $ App func a
     2 -> do
       op <- uniformD [Plus, Minus, Times, Divide]
-      left <- expr ctx IntTy
-      right <- expr ctx IntTy
+      left <- sizedExpr ctx IntTy (i-1)
+      right <- sizedExpr ctx IntTy (i-1)
       return . Fix $ BinOp (Arith op) left right
-operator ctx DoubleTy = do
+operator ctx DoubleTy i = do
   generate_case <- uniformD [0..2]
   case generate_case of
     0 -> constExpr ctx DoubleTy
     1 -> do
       ta <- exprType
-      a <- expr ctx ta
-      func <- expr ctx (FuncTy ta DoubleTy)
+      a <- sizedExpr ctx ta (i-1)
+      func <- sizedExpr ctx (FuncTy ta DoubleTy) (i-1)
       return . Fix $ App func a
     2 -> do
       op <- uniformD [Plus, Minus, Times, Divide]
-      left <- expr ctx DoubleTy
-      right <- expr ctx DoubleTy
+      left <- sizedExpr ctx DoubleTy (i-1)
+      right <- sizedExpr ctx DoubleTy (i-1)
       return . Fix $ BinOp (Arith op) left right
-operator ctx BoolTy = do
+operator ctx BoolTy i = do
   generate_case <- uniformD [0..2]
   case generate_case of
     0 -> constExpr ctx BoolTy
     1 -> do
       ta <- exprType
-      a <- expr ctx ta
-      func <- expr ctx (FuncTy ta BoolTy)
+      a <- sizedExpr ctx ta (i-1)
+      func <- sizedExpr ctx (FuncTy ta BoolTy) (i-1)
       return . Fix $ App func a
     2 -> do
       prob <- uniform 0.0 1.0
       return . Fix $ Flip (Fix $ Constant (DoubleConstant prob))
-operator ctx StringTy = do
+operator ctx StringTy i = do
   generate_case <- uniformD [0..1]
   case generate_case of
     0 -> constExpr ctx StringTy
     1 -> do
       ta <- exprType
-      a <- expr ctx ta
-      func <- expr ctx (FuncTy ta StringTy)
+      a <- sizedExpr ctx ta (i-1)
+      func <- sizedExpr ctx (FuncTy ta StringTy) (i-1)
       return . Fix $ App func a
 
 compatibles :: Map.Map String ExprType -> ExprType -> Map.Map String ExprType
@@ -114,13 +116,17 @@ var ctx t | compats /= Map.empty =
     compats = compatibles ctx t
 var _ _ = Nothing
 
-expr :: MonadSample m => Map.Map String ExprType -> ExprType -> m Expr
-expr ctx t = do
+sizedExpr :: MonadSample m => Map.Map String ExprType -> ExprType -> Int ->
+             m Expr
+sizedExpr ctx t i = do
   let numCompatibles = length (compatibles ctx t)
   fresh_chance <- uniformD [0..numCompatibles]
   case var ctx t of
     Just v | fresh_chance < numCompatibles -> v
-    _ -> operator ctx t
+    _ -> operator ctx t i
+
+expr :: MonadSample m => Map.Map String ExprType -> ExprType -> m Expr
+expr ctx t = uniform 0.0 1.0 >>= geometric >>= sizedExpr ctx t
 
 exprScore :: Map.Map String ExprType -> ExprType -> Expr -> Maybe (Log Double)
 exprScore ctx t (Fix (Var name)) =
