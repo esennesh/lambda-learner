@@ -116,9 +116,10 @@ var _ _ = Nothing
 
 expr :: MonadSample m => Map.Map String ExprType -> ExprType -> m Expr
 expr ctx t = do
-  generate <- bernoulli 0.5
+  let numCompatibles = length (compatibles ctx t)
+  fresh_chance <- uniformD [0..numCompatibles]
   case var ctx t of
-    Just v | not generate -> v
+    Just v | fresh_chance < numCompatibles -> v
     _ -> operator ctx t
 
 exprScore :: Map.Map String ExprType -> ExprType -> Expr -> Maybe (Log Double)
