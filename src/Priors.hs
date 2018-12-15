@@ -53,25 +53,55 @@ operator ctx (FuncTy a b) = do
   arg <- string
   body <- expr (Map.insert arg a ctx) b
   return . Fix $ Abs (arg, a) body
-operator ctx t = do
-  let numCases = if t == BoolTy || t == IntTy || t == DoubleTy then 3 else 2
-  generate_case <- uniformD [0..numCases-1]
+operator ctx IntTy = do
+  generate_case <- uniformD [0..2]
   case generate_case of
-    0 -> constExpr ctx t
+    0 -> constExpr ctx IntTy
     1 -> do
       ta <- exprType
       a <- expr ctx ta
-      func <- operator ctx (FuncTy ta t)
+      func <- expr ctx (FuncTy ta IntTy)
       return . Fix $ App func a
-    2 -> case t of
-      BoolTy -> do
-        prob <- uniform 0.0 1.0
-        return . Fix $ Flip (Fix $ Constant (DoubleConstant prob))
-      _ | t == IntTy || t == DoubleTy -> do
-        op <- uniformD [Plus, Minus, Times, Divide]
-        left <- expr ctx t
-        right <- expr ctx t
-        return . Fix $ BinOp (Arith op) left right
+    2 -> do
+      op <- uniformD [Plus, Minus, Times, Divide]
+      left <- expr ctx IntTy
+      right <- expr ctx IntTy
+      return . Fix $ BinOp (Arith op) left right
+operator ctx DoubleTy = do
+  generate_case <- uniformD [0..2]
+  case generate_case of
+    0 -> constExpr ctx DoubleTy
+    1 -> do
+      ta <- exprType
+      a <- expr ctx ta
+      func <- expr ctx (FuncTy ta DoubleTy)
+      return . Fix $ App func a
+    2 -> do
+      op <- uniformD [Plus, Minus, Times, Divide]
+      left <- expr ctx DoubleTy
+      right <- expr ctx DoubleTy
+      return . Fix $ BinOp (Arith op) left right
+operator ctx BoolTy = do
+  generate_case <- uniformD [0..2]
+  case generate_case of
+    0 -> constExpr ctx BoolTy
+    1 -> do
+      ta <- exprType
+      a <- expr ctx ta
+      func <- expr ctx (FuncTy ta BoolTy)
+      return . Fix $ App func a
+    2 -> do
+      prob <- uniform 0.0 1.0
+      return . Fix $ Flip (Fix $ Constant (DoubleConstant prob))
+operator ctx StringTy = do
+  generate_case <- uniformD [0..1]
+  case generate_case of
+    0 -> constExpr ctx StringTy
+    1 -> do
+      ta <- exprType
+      a <- expr ctx ta
+      func <- expr ctx (FuncTy ta StringTy)
+      return . Fix $ App func a
 
 compatibles :: Map.Map String ExprType -> ExprType -> Map.Map String ExprType
 compatibles ctx t = Map.filter (== t) ctx
