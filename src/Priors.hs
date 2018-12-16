@@ -42,19 +42,23 @@ string = do
   else
     return [c]
 
+abstraction :: MonadSample m => Map.Map String ExprType -> ExprType ->
+               ExprType -> Int -> m Expr
+abstraction ctx a b i = do
+  arg <- string
+  body <- sizedExpr (Map.insert arg a ctx) b (i-1)
+  return . Fix $ Abs (arg, a) body
+
 constExpr :: MonadSample m => Map.Map String ExprType -> ExprType -> m Expr
 constExpr _ IntTy = (Fix . Constant . IntConstant . (+ 1)) <$> geometric 0.5
 constExpr _ BoolTy = (Fix . Constant . BoolConstant) <$> bernoulli 0.5
 constExpr _ StringTy = (Fix . Constant . StrConstant) <$> string
 constExpr _ DoubleTy = (Fix . Constant . DoubleConstant) <$> uniform 0.0 1.0
+constExpr ctx (FuncTy a b) = abstraction ctx a b 0
 
 operator :: MonadSample m => Map.Map String ExprType -> ExprType -> Int ->
             m Expr
-operator ctx t i | not (arrowType t) && (i <= 0) = constExpr ctx t
-operator ctx (FuncTy a b) i = do
-  arg <- string
-  body <- sizedExpr (Map.insert arg a ctx) b (i-1)
-  return . Fix $ Abs (arg, a) body
+operator ctx (FuncTy a b) i = abstraction ctx a b i
 operator ctx IntTy i = do
   generate_case <- uniformD [0..2]
   case generate_case of
@@ -123,7 +127,8 @@ sizedExpr ctx t i = do
   fresh_chance <- uniformD [0..numCompatibles]
   case var ctx t of
     Just v | fresh_chance < numCompatibles -> v
-    _ -> operator ctx t i
+    _ | i > 0 -> operator ctx t i
+    _ -> constExpr ctx t
 
 expr :: MonadSample m => Map.Map String ExprType -> ExprType -> m Expr
 expr ctx t = uniform 0.0 1.0 >>= geometric >>= sizedExpr ctx t
