@@ -50,7 +50,7 @@ constExpr _ DoubleTy = (Fix . Constant . DoubleConstant) <$> uniform 0.0 1.0
 
 operator :: MonadSample m => Map.Map String ExprType -> ExprType -> Int ->
             m Expr
-operator ctx t 0 | not (arrowType t) = constExpr ctx t
+operator ctx t i | not (arrowType t) && (i <= 0) = constExpr ctx t
 operator ctx (FuncTy a b) i = do
   arg <- string
   body <- sizedExpr (Map.insert arg a ctx) b (i-1)
