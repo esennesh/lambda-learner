@@ -79,8 +79,8 @@ operator ctx t i | t == IntTy || t == DoubleTy = do
   generate_case <- uniformD [0..2]
   case generate_case of
     0 -> constExpr ctx t
-    1 -> application ctx t (i-1)
-    2 -> arithmeticBinOp ctx t (i-1)
+    1 -> application ctx t i
+    2 -> arithmeticBinOp ctx t i
 operator ctx BoolTy i = do
   generate_case <- uniformD [0..2]
   case generate_case of
