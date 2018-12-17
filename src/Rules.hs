@@ -346,4 +346,4 @@ expandSteps 0 e = return e
 expandSteps k e = expandStep e >>= expandSteps (k-1)
 
 expand :: MonadSample m => Double -> Expr -> m Expr
-expand p e = (geometric p) >>= \k -> expandSteps k e
+expand p e = (geometric p) >>= \k -> expandSteps (k+1) e
