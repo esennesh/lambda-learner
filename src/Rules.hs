@@ -87,8 +87,16 @@ constTyping ctx = Rule $ \e -> case unfix e of
     constType (DoubleConstant _) = DoubleTy
   _ -> empty
 
+condTyping :: TypingRule Identity
+condTyping ctx = Rule $ \e -> case unfix e of
+  Cond i t e -> do
+    BoolTy <- rulesCheck ctx i
+    tt <- rulesCheck ctx t
+    tt <- rulesCheck ctx e
+    return tt
+
 typingRules = [applicationTyping, varTyping, flipTyping, absTyping, constTyping,
-               binOpTyping]
+               binOpTyping, condTyping]
 
 rulesCheck :: Context ExprType -> Expr -> MaybeT Identity ExprType
 rulesCheck ctx = step $ map (\rule -> rule ctx) typingRules
@@ -147,9 +155,22 @@ flipStepProb = Rule $ \e -> case unfix e of
     return . Fix $ Flip expr'
   _ -> empty
 
+condStepCond :: MonadSample m => RedexRule m
+condStepCond = Rule $ \e -> case unfix e of
+  Cond i t e | not (value i) -> do
+    i' <- rulesStep i
+    return . Fix $ Cond i' t e
+  _ -> empty
+
+condStepResolve :: MonadSample m => RedexRule m
+condStepResolve = Rule $ \e -> case unfix e of
+  Cond (Fix (Constant (BoolConstant i))) t e -> if i then return t else return e
+  _ -> empty
+
 smallStepRules :: MonadSample m => [RedexRule m]
 smallStepRules = [applyStepAbs, applyStepLeft, applyStepRight, flipStepSample,
-                  flipStepProb, binOpStepLeft, binOpStepRight, binOpStepOp]
+                  flipStepProb, binOpStepLeft, binOpStepRight, binOpStepOp,
+                  condStepCond, condStepResolve]
 
 rulesStep :: MonadSample m => Expr -> MaybeT m Expr
 rulesStep = step smallStepRules
@@ -275,10 +296,31 @@ binOpExpandRight = pattern Pattern.var Pattern.var Pattern.var ->> \op l r -> do
       BinOp op l r | expandable r -> Just (op, l, r)
       _ -> Nothing
 
+condExpandCond :: MonadSample m => ExpansionRule m
+condExpandCond = pattern Pattern.var Pattern.var Pattern.var ->> \i t e -> do
+  i' <- expandStep i
+  return (ifThenElse i' t e)
+  where
+    pattern = mk3 $ \e -> case unfix e of
+      Cond i t e | expandable i -> Just (i, t, e)
+      _ -> Nothing
+
+condExpandResolve :: MonadSample m => ExpansionRule m
+condExpandResolve = Pattern.var ->> \e -> do
+  let t = fromJust $ check e Map.empty
+  weight <- uniform 0 1
+  decision <- bernoulli weight
+  alternative <- sizedExpr Map.empty t (length (unfix e))
+  let ifCond = Calculi.constant (BoolConstant decision)
+  if decision then
+    return (ifThenElse ifCond e alternative)
+  else
+    return (ifThenElse ifCond alternative e)
+
 expandRules :: MonadSample m => [ExpansionRule m]
 expandRules = [applyExpandAbs, applyExpandLeft, applyExpandRight, binOpExpandOp,
                binOpExpandLeft, binOpExpandRight, flipExpandSample,
-               flipExpandProb]
+               flipExpandProb, condExpandCond, condExpandResolve]
 
 expandable :: Expr -> Bool
 expandable e = not $ null [r | r <- expandRules', isJust (tryMatch e r)] where
